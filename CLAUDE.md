@@ -20,8 +20,9 @@ Examples:
 ### Workflow
 1. Create a new branch from `main`
 2. Make changes and commit with descriptive messages
-3. Push branch and notify user to review/merge
-4. After merge, checkout `main` and pull latest
+3. Push branch and create PR with description
+4. Notify user to review/merge
+5. After merge, checkout `main` and pull latest
 
 ```bash
 # Create branch
@@ -34,12 +35,27 @@ git commit -m "Short description
 - Detail 1
 - Detail 2"
 
-# Push
+# Push and create PR with description
 git push -u origin kecho/feature-name
+gh pr create --title "Short title" --body "## Summary
+Brief description of changes
+
+## Changes
+- Change 1
+- Change 2
+
+## Testing
+How it was tested"
 
 # After merge
 git checkout main && git pull origin main
 ```
+
+### Pull Request Requirements
+Always include a PR description with:
+- **Summary**: Brief description of what the PR does
+- **Changes**: Bullet list of specific changes made
+- **Testing**: How the changes were tested
 
 ## Development
 
