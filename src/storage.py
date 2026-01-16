@@ -176,3 +176,27 @@ class WorkstreamStorage:
             for w in workstreams_list
             if lower_query in w.name.lower() or lower_query in w.summary.lower()
         ]
+
+    async def add_note(self, id: str, note: str) -> Optional[Workstream]:
+        """Add a note to a workstream."""
+        from datetime import datetime
+
+        workstream = self._workstreams.get(id)
+        if not workstream:
+            return None
+
+        # Add timestamped note
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        workstream.notes.append(f"[{timestamp}] {note}")
+        workstream.updated_at = datetime.now().isoformat()
+
+        self._workstreams[workstream.id] = workstream
+        await self._save()
+        return workstream
+
+    async def get_notes(self, id: str) -> Optional[list[str]]:
+        """Get all notes for a workstream."""
+        workstream = self._workstreams.get(id)
+        if not workstream:
+            return None
+        return workstream.notes

@@ -227,6 +227,32 @@ def get_dashboard_html(current_profile: str) -> str:
             font-size: 0.75rem;
         }}
         
+        .notes-section {{
+            background: #1c2128;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.8rem;
+        }}
+        
+        .notes-header {{
+            color: #8b949e;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }}
+        
+        .note {{
+            color: #c9d1d9;
+            padding: 0.5rem;
+            background: #0d1117;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            line-height: 1.4;
+        }}
+        
+        .note:last-child {{ margin-bottom: 0; }}
+        
         .timestamps {{
             margin-top: 1rem;
             padding-top: 0.75rem;
@@ -339,6 +365,18 @@ def render_workstreams(workstreams: list) -> str:
                 </div>
             '''
         
+        # Build notes section
+        notes_html = ""
+        if ws.notes:
+            notes_list = "".join(f'<div class="note">{note}</div>' for note in ws.notes[-3:])  # Show last 3
+            notes_count = f" ({len(ws.notes)} total)" if len(ws.notes) > 3 else ""
+            notes_html = f'''
+                <div class="notes-section">
+                    <div class="notes-header">📝 Notes{notes_count}</div>
+                    {notes_list}
+                </div>
+            '''
+        
         # Format timestamps
         created = ws.created_at[:19].replace("T", " ")
         updated = ws.updated_at[:19].replace("T", " ")
@@ -352,6 +390,7 @@ def render_workstreams(workstreams: list) -> str:
                 <p class="workstream-summary">{ws.summary}</p>
                 <div class="tags">{tags_html}</div>
                 {metadata_html}
+                {notes_html}
                 <div class="timestamps">
                     <span>Created: {created}</span>
                     <span>Updated: {updated}</span>

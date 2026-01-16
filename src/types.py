@@ -47,6 +47,7 @@ class Workstream:
     summary: str
     tags: list[str] = field(default_factory=list)
     metadata: WorkstreamMetadata = field(default_factory=WorkstreamMetadata)
+    notes: list[str] = field(default_factory=list)  # Rich context notes
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
@@ -57,6 +58,7 @@ class Workstream:
             "summary": self.summary,
             "tags": self.tags,
             "metadata": self.metadata.to_dict(),
+            "notes": self.notes,
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
         }
@@ -69,6 +71,7 @@ class Workstream:
             summary=data["summary"],
             tags=data.get("tags", []),
             metadata=WorkstreamMetadata.from_dict(data.get("metadata", {})),
+            notes=data.get("notes", []),
             created_at=data.get("createdAt", datetime.now().isoformat()),
             updated_at=data.get("updatedAt", datetime.now().isoformat()),
         )

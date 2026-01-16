@@ -92,6 +92,30 @@ async def cmd_tags(storage: WorkstreamStorage, tags: list[str]) -> None:
         print(f"  Tags: {', '.join(w.tags)}")
 
 
+async def cmd_note(storage: WorkstreamStorage, workstream_id: str, note: str) -> None:
+    """Add a note to a workstream."""
+    workstream = await storage.add_note(workstream_id, note)
+    if not workstream:
+        print(f"Workstream {workstream_id} not found", file=sys.stderr)
+        sys.exit(1)
+    print(f"Note added to '{workstream.name}'. Total notes: {len(workstream.notes)}")
+
+
+async def cmd_notes(storage: WorkstreamStorage, workstream_id: str) -> None:
+    """Show all notes for a workstream."""
+    notes = await storage.get_notes(workstream_id)
+    if notes is None:
+        print(f"Workstream {workstream_id} not found", file=sys.stderr)
+        sys.exit(1)
+    if not notes:
+        print("No notes yet.")
+        return
+    print(f"Notes ({len(notes)}):\n")
+    for note in notes:
+        print(note)
+        print()
+
+
 def show_help() -> None:
     """Show help message."""
     print(f"""
@@ -107,6 +131,8 @@ Commands:
   delete <id>                       Delete a workstream
   search <query>                    Search workstreams by name or summary
   tags <tag1> [tag2]                Search workstreams by tags
+  note <id> <note>                  Add a note to a workstream
+  notes <id>                        Show all notes for a workstream
   help                              Show this help message
 
 Options:
@@ -118,6 +144,8 @@ Examples:
   local-mem list --profile prod
   local-mem create "My Project" "Working on the API" --tags backend,api
   local-mem get ws-1234567890-abc123
+  local-mem note ws-123 "Deployed to staging, testing in progress"
+  local-mem notes ws-123
   local-mem delete ws-1234567890-abc123
   local-mem search "API project"
   local-mem tags backend nodejs
@@ -176,6 +204,17 @@ async def main() -> None:
             print("Error: Please provide at least one tag", file=sys.stderr)
             sys.exit(1)
         await cmd_tags(storage, cmd_args)
+    elif command == "note":
+        if len(cmd_args) < 2:
+            print("Error: Please provide workstream ID and note", file=sys.stderr)
+            print('Usage: local-mem note <id> "Your note here"', file=sys.stderr)
+            sys.exit(1)
+        await cmd_note(storage, cmd_args[0], " ".join(cmd_args[1:]))
+    elif command == "notes":
+        if not cmd_args:
+            print("Error: Please provide a workstream ID", file=sys.stderr)
+            sys.exit(1)
+        await cmd_notes(storage, cmd_args[0])
     elif command in ("help", "--help", "-h"):
         show_help()
     else:
