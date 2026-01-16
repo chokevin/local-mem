@@ -31,6 +31,32 @@ npm run build
 
 ## Usage
 
+### CLI Utility
+
+After building, you can use the CLI to quickly view and search workstreams:
+
+```bash
+# List all workstreams
+node dist/cli.js list
+
+# Search by name or summary
+node dist/cli.js search "API project"
+
+# Search by tags
+node dist/cli.js tags backend nodejs
+
+# Get a specific workstream
+node dist/cli.js get ws-1234567890-abc123
+
+# Show help
+node dist/cli.js help
+```
+
+For convenience, you can create an alias in your shell:
+```bash
+alias local-mem-cli="node /path/to/local-mem/dist/cli.js"
+```
+
 ### As a Standalone Server
 
 Run the server in development mode:

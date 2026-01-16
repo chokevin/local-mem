@@ -59,7 +59,7 @@ export class WorkstreamStorage {
    * Generate a unique ID for a workstream
    */
   private generateId(): string {
-    return `ws-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `ws-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**

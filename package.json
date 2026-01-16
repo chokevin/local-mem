@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "local-mem": "dist/index.js"
+    "local-mem": "dist/index.js",
+    "local-mem-cli": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
