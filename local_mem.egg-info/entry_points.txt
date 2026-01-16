@@ -1,0 +1,4 @@
+[console_scripts]
+local-mem = src.server:main
+local-mem-cli = src.cli:run
+local-mem-ui = src.web:main
