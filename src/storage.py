@@ -47,9 +47,7 @@ class WorkstreamStorage:
         try:
             if self.data_file.exists():
                 data = json.loads(self.data_file.read_text(encoding="utf-8"))
-                self._workstreams = {
-                    w["id"]: Workstream.from_dict(w) for w in data
-                }
+                self._workstreams = {w["id"]: Workstream.from_dict(w) for w in data}
             else:
                 self._workstreams = {}
         except FileNotFoundError:
@@ -64,7 +62,9 @@ class WorkstreamStorage:
 
     def _generate_id(self) -> str:
         """Generate a unique ID for a workstream."""
-        random_part = "".join(random.choices(string.ascii_lowercase + string.digits, k=9))
+        random_part = "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=9)
+        )
         return f"ws-{int(time.time() * 1000)}-{random_part}"
 
     async def create(self, request: CreateWorkstreamRequest) -> Workstream:
@@ -73,13 +73,14 @@ class WorkstreamStorage:
 
         now = datetime.now().isoformat()
         metadata = WorkstreamMetadata.from_dict(request.metadata or {})
-        
+
         workstream = Workstream(
             id=self._generate_id(),
             name=request.name,
             summary=request.summary,
             tags=request.tags or [],
             metadata=metadata,
+            parent_id=request.parent_id,
             created_at=now,
             updated_at=now,
         )
@@ -116,7 +117,10 @@ class WorkstreamStorage:
             existing_metadata = workstream.metadata.to_dict()
             existing_metadata.update(request.metadata)
             workstream.metadata = WorkstreamMetadata.from_dict(existing_metadata)
-        
+        if request.parent_id is not None:
+            # Allow empty string to clear parent
+            workstream.parent_id = request.parent_id if request.parent_id else None
+
         workstream.updated_at = datetime.now().isoformat()
 
         self._workstreams[workstream.id] = workstream
@@ -157,14 +161,10 @@ class WorkstreamStorage:
 
         if match_all:
             # Match all tags
-            return [
-                w for w in workstreams_list if all(tag in w.tags for tag in tags)
-            ]
+            return [w for w in workstreams_list if all(tag in w.tags for tag in tags)]
         else:
             # Match any tag
-            return [
-                w for w in workstreams_list if any(tag in w.tags for tag in tags)
-            ]
+            return [w for w in workstreams_list if any(tag in w.tags for tag in tags)]
 
     async def search(self, query: str) -> list[Workstream]:
         """Search workstreams by name or summary."""
@@ -200,3 +200,52 @@ class WorkstreamStorage:
         if not workstream:
             return None
         return workstream.notes
+
+    async def set_parent(self, id: str, parent_id: str | None) -> Optional[Workstream]:
+        """Set or clear the parent of a workstream."""
+        from datetime import datetime
+
+        workstream = self._workstreams.get(id)
+        if not workstream:
+            return None
+
+        # Validate parent exists if provided
+        if parent_id and parent_id not in self._workstreams:
+            return None
+
+        # Prevent circular references
+        if parent_id:
+            current = parent_id
+            while current:
+                if current == id:
+                    return None  # Would create a cycle
+                parent_ws = self._workstreams.get(current)
+                current = parent_ws.parent_id if parent_ws else None
+
+        workstream.parent_id = parent_id
+        workstream.updated_at = datetime.now().isoformat()
+        self._workstreams[workstream.id] = workstream
+        await self._save()
+        return workstream
+
+    async def get_children(self, parent_id: str) -> list[Workstream]:
+        """Get all direct children of a workstream."""
+        return [ws for ws in self._workstreams.values() if ws.parent_id == parent_id]
+
+    async def get_tree(self) -> dict:
+        """
+        Build a tree structure from all workstreams.
+
+        Returns a dict with:
+        - roots: list of workstreams with no parent
+        - children: dict mapping parent_id -> list of children
+        """
+        from .heuristics import build_tree
+
+        return build_tree(list(self._workstreams.values()))
+
+    async def suggest_relationships(self) -> list:
+        """Suggest relationships between workstreams using heuristics."""
+        from .heuristics import suggest_relationships
+
+        return suggest_relationships(list(self._workstreams.values()))

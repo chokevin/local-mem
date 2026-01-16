@@ -40,7 +40,7 @@ def get_dashboard_html(current_profile: str) -> str:
         f'<option value="{p}" {"selected" if p == current_profile else ""}>{p.title()}</option>'
         for p in PROFILES
     )
-    
+
     return f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -320,68 +320,79 @@ def render_workstreams(workstreams: list) -> str:
             <p>Create a workstream using the MCP server to see it here</p>
         </div>
         """
-    
+
     cards = []
     for ws in sorted(workstreams, key=lambda x: x.updated_at, reverse=True):
         tags_html = "".join(f'<span class="tag">{tag}</span>' for tag in ws.tags)
-        
+
         # Build metadata section
         metadata_items = []
         meta = ws.metadata
         if meta.host_ips:
-            metadata_items.append(f'''
+            metadata_items.append(
+                f"""
                 <div class="metadata-item">
                     <span class="metadata-key">Host IPs</span>
                     <span class="metadata-value">{", ".join(meta.host_ips)}</span>
                 </div>
-            ''')
+            """
+            )
         if meta.connection_info:
-            metadata_items.append(f'''
+            metadata_items.append(
+                f"""
                 <div class="metadata-item">
                     <span class="metadata-key">Connection</span>
                     <span class="metadata-value">{meta.connection_info}</span>
                 </div>
-            ''')
+            """
+            )
         if meta.testing_info:
-            metadata_items.append(f'''
+            metadata_items.append(
+                f"""
                 <div class="metadata-item">
                     <span class="metadata-key">Testing</span>
                     <span class="metadata-value">{meta.testing_info}</span>
                 </div>
-            ''')
+            """
+            )
         for key, value in meta.extra.items():
-            metadata_items.append(f'''
+            metadata_items.append(
+                f"""
                 <div class="metadata-item">
                     <span class="metadata-key">{key}</span>
                     <span class="metadata-value">{value}</span>
                 </div>
-            ''')
-        
+            """
+            )
+
         metadata_html = ""
         if metadata_items:
-            metadata_html = f'''
+            metadata_html = f"""
                 <div class="metadata">
                     {"".join(metadata_items)}
                 </div>
-            '''
-        
+            """
+
         # Build notes section
         notes_html = ""
         if ws.notes:
-            notes_list = "".join(f'<div class="note">{note}</div>' for note in ws.notes[-3:])  # Show last 3
+            notes_list = "".join(
+                f'<div class="note">{note}</div>' for note in ws.notes[-3:]
+            )  # Show last 3
             notes_count = f" ({len(ws.notes)} total)" if len(ws.notes) > 3 else ""
-            notes_html = f'''
+            notes_html = f"""
                 <div class="notes-section">
                     <div class="notes-header">📝 Notes{notes_count}</div>
                     {notes_list}
                 </div>
-            '''
-        
+            """
+
         # Format timestamps
         created = ws.created_at[:19].replace("T", " ")
         updated = ws.updated_at[:19].replace("T", " ")
-        
-        cards.append(f'''
+
+        cards.append(
+            f"""
             <div class="workstream-card">
                 <div class="workstream-header">
                     <span class="workstream-name">{ws.name}</span>
@@ -396,8 +407,9 @@ def render_workstreams(workstreams: list) -> str:
                     <span>Updated: {updated}</span>
                 </div>
             </div>
-        ''')
-    
+        """
+        )
+
     return f'<div class="workstreams">{"".join(cards)}</div>'
 
 
@@ -420,10 +432,12 @@ async def dashboard(
     if profile is not None:
         selected_profile = profile if profile in PROFILES else DEFAULT_PROFILE
     elif workstream_profile is not None:
-        selected_profile = workstream_profile if workstream_profile in PROFILES else DEFAULT_PROFILE
+        selected_profile = (
+            workstream_profile if workstream_profile in PROFILES else DEFAULT_PROFILE
+        )
     else:
         selected_profile = DEFAULT_PROFILE
-    
+
     # Set cookie to persist the profile choice
     response.set_cookie(
         key=PROFILE_COOKIE,
@@ -432,7 +446,7 @@ async def dashboard(
         httponly=False,  # Allow JS access for profile switcher
         samesite="lax",
     )
-    
+
     return get_dashboard_html(selected_profile)
 
 
@@ -441,35 +455,37 @@ async def events(request: Request, profile: str = Query(default=DEFAULT_PROFILE)
     """SSE endpoint for live updates."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
-    
+
     storage = get_storage(profile)
-    
+
     async def event_generator() -> AsyncGenerator[str, None]:
         # Track last modification time for THIS connection (not global)
         last_mod = 0.0  # Start at 0 to force initial send
-        
+
         while True:
             if await request.is_disconnected():
                 break
-            
+
             # Check if data file was modified
             try:
                 current_modified = storage.data_file.stat().st_mtime
             except FileNotFoundError:
                 current_modified = 0.0
-            
+
             # Send on first connect (last_mod=0) or when file changes
             if current_modified != last_mod or last_mod == 0.0:
-                last_mod = current_modified if current_modified > 0 else -1.0  # Mark as sent
+                last_mod = (
+                    current_modified if current_modified > 0 else -1.0
+                )  # Mark as sent
                 await storage._load()  # Reload data
                 workstreams = await storage.list()
                 html = render_workstreams(workstreams)
                 # Escape newlines for SSE
                 html_escaped = html.replace("\n", "")
                 yield f"data: {html_escaped}\n\n"
-            
+
             await asyncio.sleep(1)  # Poll every second
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -492,7 +508,9 @@ async def list_workstreams(profile: str = Query(default=DEFAULT_PROFILE)):
 
 
 @app.get("/api/workstreams/{workstream_id}")
-async def get_workstream(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
+async def get_workstream(
+    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
+):
     """API endpoint to get a specific workstream."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -508,11 +526,13 @@ def main():
     """Run the web UI server."""
     import argparse
     import uvicorn
-    
+
     parser = argparse.ArgumentParser(description="Workstream Dashboard")
-    parser.add_argument("--port", type=int, default=8080, help="Port to run on (default: 8080)")
+    parser.add_argument(
+        "--port", type=int, default=8080, help="Port to run on (default: 8080)"
+    )
     args = parser.parse_args()
-    
+
     print(f"Starting Workstream Dashboard at http://localhost:{args.port}")
     print(f"Available profiles: {', '.join(PROFILES)}")
     uvicorn.run(app, host="0.0.0.0", port=args.port)
