@@ -2,6 +2,10 @@
 
 A local MCP (Model Context Protocol) server for organizing work into segments (workstreams) with tagging, summaries, and metadata. Easily attach to your VS Code session to manage and reference your work.
 
+## 🚀 Quick Start
+
+New here? Check out the [Quick Start Guide](QUICKSTART.md) to get up and running in 5 minutes!
+
 ## Features
 
 - 📁 **Workstream Management**: Create, update, delete, and list work segments
@@ -230,6 +234,16 @@ Tool: add_tags
 - `npm run dev`: Run in development mode with auto-reload
 - `npm run build`: Build TypeScript to JavaScript
 - `npm start`: Run the built version
+
+## Documentation
+
+- **[Quick Start Guide](QUICKSTART.md)**: Get started in 5 minutes
+- **[VS Code Setup](VSCODE_SETUP.md)**: Detailed VS Code integration instructions
+- **[Examples](EXAMPLES.md)**: Real-world usage examples and best practices
+
+## Contributing
+
+Contributions are welcome! Feel free to open issues or submit pull requests.
 
 ## License
 
