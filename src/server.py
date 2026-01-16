@@ -194,6 +194,38 @@ def get_tools() -> list[Tool]:
                 "required": ["query"],
             },
         ),
+        Tool(
+            name="add_note",
+            description="Add a contextual note to a workstream. Use this to capture decisions, progress, blockers, or any relevant context.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Workstream ID",
+                    },
+                    "note": {
+                        "type": "string",
+                        "description": "The note content to add",
+                    },
+                },
+                "required": ["id", "note"],
+            },
+        ),
+        Tool(
+            name="get_notes",
+            description="Get all notes for a workstream",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Workstream ID",
+                    },
+                },
+                "required": ["id"],
+            },
+        ),
     ]
 
 
@@ -284,6 +316,29 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 type="text",
                 text=json.dumps([w.to_dict() for w in workstreams], indent=2),
             )]
+
+        elif name == "add_note":
+            workstream = await storage.add_note(arguments["id"], arguments["note"])
+            if not workstream:
+                return [TextContent(
+                    type="text",
+                    text=f'Workstream with ID "{arguments["id"]}" not found',
+                )]
+            return [TextContent(
+                type="text",
+                text=f'Note added to "{workstream.name}". Total notes: {len(workstream.notes)}',
+            )]
+
+        elif name == "get_notes":
+            notes = await storage.get_notes(arguments["id"])
+            if notes is None:
+                return [TextContent(
+                    type="text",
+                    text=f'Workstream with ID "{arguments["id"]}" not found',
+                )]
+            if not notes:
+                return [TextContent(type="text", text="No notes yet.")]
+            return [TextContent(type="text", text="\n\n".join(notes))]
 
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]

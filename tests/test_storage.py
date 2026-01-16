@@ -286,3 +286,71 @@ async def test_persistence(tmp_path: Path) -> None:
     workstreams = await storage2.list()
     assert len(workstreams) == 1
     assert workstreams[0].name == "Persistent Project"
+
+
+@pytest.mark.asyncio
+async def test_add_note(storage: WorkstreamStorage) -> None:
+    """Test adding notes to a workstream."""
+    workstream = await storage.create(CreateWorkstreamRequest(
+        name="Project with Notes",
+        summary="Testing notes feature",
+    ))
+    
+    original_updated_at = workstream.updated_at
+    import asyncio
+    await asyncio.sleep(0.01)  # Ensure timestamp changes
+    result = await storage.add_note(workstream.id, "First note")
+    
+    assert result is not None
+    assert len(result.notes) == 1
+    assert "First note" in result.notes[0]
+    assert result.updated_at != original_updated_at
+
+
+@pytest.mark.asyncio
+async def test_add_multiple_notes(storage: WorkstreamStorage) -> None:
+    """Test adding multiple notes to a workstream."""
+    workstream = await storage.create(CreateWorkstreamRequest(
+        name="Project with Notes",
+        summary="Testing notes feature",
+    ))
+    
+    await storage.add_note(workstream.id, "Note 1")
+    await storage.add_note(workstream.id, "Note 2")
+    result = await storage.add_note(workstream.id, "Note 3")
+    
+    assert len(result.notes) == 3
+    assert "Note 1" in result.notes[0]
+    assert "Note 2" in result.notes[1]
+    assert "Note 3" in result.notes[2]
+
+
+@pytest.mark.asyncio
+async def test_get_notes(storage: WorkstreamStorage) -> None:
+    """Test getting notes for a workstream."""
+    workstream = await storage.create(CreateWorkstreamRequest(
+        name="Project with Notes",
+        summary="Testing notes feature",
+    ))
+    
+    await storage.add_note(workstream.id, "Test note")
+    
+    notes = await storage.get_notes(workstream.id)
+    
+    assert notes is not None
+    assert len(notes) == 1
+    assert "Test note" in notes[0]
+
+
+@pytest.mark.asyncio
+async def test_get_notes_nonexistent(storage: WorkstreamStorage) -> None:
+    """Test getting notes for nonexistent workstream."""
+    notes = await storage.get_notes("nonexistent-id")
+    assert notes is None
+
+
+@pytest.mark.asyncio
+async def test_add_note_nonexistent(storage: WorkstreamStorage) -> None:
+    """Test adding note to nonexistent workstream."""
+    result = await storage.add_note("nonexistent-id", "Some note")
+    assert result is None
