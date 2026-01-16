@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "local-mem": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/local-mem/dist/index.js"
+      ],
+      "description": "Local memory server for organizing work into segments"
+    }
+  }
+}
