@@ -247,23 +247,35 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 metadata=arguments.get("metadata"),
             )
             workstream = await storage.create(request)
-            return [TextContent(type="text", text=json.dumps(workstream.to_dict(), indent=2))]
+            return [
+                TextContent(
+                    type="text", text=json.dumps(workstream.to_dict(), indent=2)
+                )
+            ]
 
         elif name == "list_workstreams":
             workstreams = await storage.list()
-            return [TextContent(
-                type="text",
-                text=json.dumps([w.to_dict() for w in workstreams], indent=2),
-            )]
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps([w.to_dict() for w in workstreams], indent=2),
+                )
+            ]
 
         elif name == "get_workstream":
             workstream = await storage.get(arguments["id"])
             if not workstream:
-                return [TextContent(
-                    type="text",
-                    text=f'Workstream with ID "{arguments["id"]}" not found',
-                )]
-            return [TextContent(type="text", text=json.dumps(workstream.to_dict(), indent=2))]
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Workstream with ID "{arguments["id"]}" not found',
+                    )
+                ]
+            return [
+                TextContent(
+                    type="text", text=json.dumps(workstream.to_dict(), indent=2)
+                )
+            ]
 
         elif name == "update_workstream":
             request = UpdateWorkstreamRequest(
@@ -275,67 +287,93 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             )
             workstream = await storage.update(request)
             if not workstream:
-                return [TextContent(
-                    type="text",
-                    text=f'Workstream with ID "{arguments["id"]}" not found',
-                )]
-            return [TextContent(type="text", text=json.dumps(workstream.to_dict(), indent=2))]
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Workstream with ID "{arguments["id"]}" not found',
+                    )
+                ]
+            return [
+                TextContent(
+                    type="text", text=json.dumps(workstream.to_dict(), indent=2)
+                )
+            ]
 
         elif name == "delete_workstream":
             deleted = await storage.delete(arguments["id"])
             if deleted:
-                return [TextContent(
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Workstream "{arguments["id"]}" deleted successfully',
+                    )
+                ]
+            return [
+                TextContent(
                     type="text",
-                    text=f'Workstream "{arguments["id"]}" deleted successfully',
-                )]
-            return [TextContent(
-                type="text",
-                text=f'Workstream "{arguments["id"]}" not found',
-            )]
+                    text=f'Workstream "{arguments["id"]}" not found',
+                )
+            ]
 
         elif name == "add_tags":
             workstream = await storage.add_tags(arguments["id"], arguments["tags"])
             if not workstream:
-                return [TextContent(
-                    type="text",
-                    text=f'Workstream with ID "{arguments["id"]}" not found',
-                )]
-            return [TextContent(type="text", text=json.dumps(workstream.to_dict(), indent=2))]
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Workstream with ID "{arguments["id"]}" not found',
+                    )
+                ]
+            return [
+                TextContent(
+                    type="text", text=json.dumps(workstream.to_dict(), indent=2)
+                )
+            ]
 
         elif name == "search_by_tags":
             match_all = arguments.get("matchAll", False)
             workstreams = await storage.search_by_tags(arguments["tags"], match_all)
-            return [TextContent(
-                type="text",
-                text=json.dumps([w.to_dict() for w in workstreams], indent=2),
-            )]
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps([w.to_dict() for w in workstreams], indent=2),
+                )
+            ]
 
         elif name == "search_workstreams":
             workstreams = await storage.search(arguments["query"])
-            return [TextContent(
-                type="text",
-                text=json.dumps([w.to_dict() for w in workstreams], indent=2),
-            )]
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps([w.to_dict() for w in workstreams], indent=2),
+                )
+            ]
 
         elif name == "add_note":
             workstream = await storage.add_note(arguments["id"], arguments["note"])
             if not workstream:
-                return [TextContent(
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Workstream with ID "{arguments["id"]}" not found',
+                    )
+                ]
+            return [
+                TextContent(
                     type="text",
-                    text=f'Workstream with ID "{arguments["id"]}" not found',
-                )]
-            return [TextContent(
-                type="text",
-                text=f'Note added to "{workstream.name}". Total notes: {len(workstream.notes)}',
-            )]
+                    text=f'Note added to "{workstream.name}". Total notes: {len(workstream.notes)}',
+                )
+            ]
 
         elif name == "get_notes":
             notes = await storage.get_notes(arguments["id"])
             if notes is None:
-                return [TextContent(
-                    type="text",
-                    text=f'Workstream with ID "{arguments["id"]}" not found',
-                )]
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Workstream with ID "{arguments["id"]}" not found',
+                    )
+                ]
             if not notes:
                 return [TextContent(type="text", text="No notes yet.")]
             return [TextContent(type="text", text="\n\n".join(notes))]
@@ -380,19 +418,25 @@ async def read_resource(uri: str) -> str:
 async def main() -> None:
     """Run the MCP server."""
     global storage, PROFILE
-    
+
     # Check for profile argument
     if len(sys.argv) > 1 and sys.argv[1].startswith("--profile="):
         PROFILE = sys.argv[1].split("=")[1]
         storage = WorkstreamStorage(profile=PROFILE)
-    
+
     await storage.initialize()
-    print(f"Local Memory MCP Server running on stdio [profile: {PROFILE}]", file=sys.stderr)
-    
+    print(
+        f"Local Memory MCP Server running on stdio [profile: {PROFILE}]",
+        file=sys.stderr,
+    )
+
     async with stdio_server() as (read_stream, write_stream):
-        await server.run(read_stream, write_stream, server.create_initialization_options())
+        await server.run(
+            read_stream, write_stream, server.create_initialization_options()
+        )
 
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

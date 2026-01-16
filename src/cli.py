@@ -12,7 +12,7 @@ import json
 import sys
 
 from .storage import DEFAULT_PROFILE, WorkstreamStorage
-from .types import CreateWorkstreamRequest
+from .types import CreateWorkstreamRequest, Workstream
 
 
 async def cmd_list(storage: WorkstreamStorage) -> None:
@@ -37,11 +37,12 @@ async def cmd_list(storage: WorkstreamStorage) -> None:
 
 
 async def cmd_create(
-    storage: WorkstreamStorage, 
-    name: str, 
-    summary: str, 
+    storage: WorkstreamStorage,
+    name: str,
+    summary: str,
     tags: list[str] | None = None,
-    metadata: dict | None = None
+    metadata: dict | None = None,
+    parent_id: str | None = None,
 ) -> None:
     """Create a new workstream."""
     request = CreateWorkstreamRequest(
@@ -49,6 +50,7 @@ async def cmd_create(
         summary=summary,
         tags=tags or [],
         metadata=metadata,
+        parent_id=parent_id,
     )
     workstream = await storage.create(request)
     print(f"Created workstream: {workstream.id}")
@@ -116,9 +118,98 @@ async def cmd_notes(storage: WorkstreamStorage, workstream_id: str) -> None:
         print()
 
 
+async def cmd_children(storage: WorkstreamStorage, parent_id: str) -> None:
+    """List children of a workstream."""
+    parent = await storage.get(parent_id)
+    if not parent:
+        print(f"Workstream {parent_id} not found", file=sys.stderr)
+        sys.exit(1)
+
+    children = await storage.get_children(parent_id)
+    if not children:
+        print(f"'{parent.name}' has no child workstreams.")
+        return
+
+    print(f"Children of '{parent.name}' ({len(children)}):\n")
+    for child in children:
+        print(f"  - {child.name} ({child.id})")
+        print(f"    Tags: {', '.join(child.tags)}")
+
+
+async def cmd_set_parent(
+    storage: WorkstreamStorage, workstream_id: str, parent_id: str | None
+) -> None:
+    """Set or clear the parent of a workstream."""
+    workstream = await storage.set_parent(workstream_id, parent_id)
+    if not workstream:
+        print("Error: Workstream not found or invalid parent", file=sys.stderr)
+        sys.exit(1)
+
+    if parent_id:
+        parent = await storage.get(parent_id)
+        print(f"Set parent of '{workstream.name}' to '{parent.name}'")
+    else:
+        print(f"Cleared parent of '{workstream.name}'")
+
+
+async def cmd_tree(storage: WorkstreamStorage) -> None:
+    """Display workstreams as a tree."""
+    tree_data = await storage.get_tree()
+    roots = tree_data["roots"]
+    children_map = tree_data["children"]
+
+    if not roots and not children_map:
+        print("No workstreams found.")
+        return
+
+    def print_tree(ws: "Workstream", indent: int = 0) -> None:
+        prefix = "  " * indent + ("└─ " if indent > 0 else "")
+        tags_str = f" [{', '.join(ws.tags[:3])}]" if ws.tags else ""
+        print(f"{prefix}{ws.name}{tags_str}")
+        for child in children_map.get(ws.id, []):
+            print_tree(child, indent + 1)
+
+    print("\nWorkstream Tree:\n")
+    # Sort roots by whether they have children (parents first)
+    roots_sorted = sorted(roots, key=lambda r: len(children_map.get(r.id, [])), reverse=True)
+    for root in roots_sorted:
+        print_tree(root)
+    print()
+
+
+async def cmd_suggest(storage: WorkstreamStorage) -> None:
+    """Suggest relationships between workstreams."""
+    suggestions = await storage.suggest_relationships()
+    if not suggestions:
+        print("No relationship suggestions found.")
+        return
+
+    all_ws = {ws.id: ws for ws in await storage.list()}
+
+    print(f"\nFound {len(suggestions)} suggested relationship(s):\n")
+    for s in suggestions:
+        source = all_ws.get(s.source_id)
+        target = all_ws.get(s.target_id)
+        if not source or not target:
+            continue
+
+        rel_icon = {"parent": "↑", "child": "↓", "related": "↔", "similar": "≈"}.get(
+            s.relationship_type, "?"
+        )
+        confidence_bar = "█" * int(s.confidence * 5) + "░" * (5 - int(s.confidence * 5))
+
+        print(f"  {source.name}")
+        print(f"    {rel_icon} {s.relationship_type} → {target.name}")
+        print(f"    [{confidence_bar}] {s.confidence:.0%} - {s.reason}")
+        print()
+
+    print("To link workstreams, use: local-mem set-parent <child_id> <parent_id>")
+
+
 def show_help() -> None:
     """Show help message."""
-    print(f"""
+    print(
+        f"""
 local-mem CLI utility
 
 Usage:
@@ -126,6 +217,7 @@ Usage:
 
 Commands:
   list, ls                          List all workstreams
+  tree                              Display workstreams as a hierarchy tree
   create <name> <summary> [--tags]  Create a new workstream
   get <id>                          Get a workstream by ID
   delete <id>                       Delete a workstream
@@ -133,23 +225,27 @@ Commands:
   tags <tag1> [tag2]                Search workstreams by tags
   note <id> <note>                  Add a note to a workstream
   notes <id>                        Show all notes for a workstream
+  children <id>                     List child workstreams
+  set-parent <id> <parent_id>       Set parent (use 'none' to clear)
+  suggest                           Suggest relationships using heuristics
   help                              Show this help message
 
 Options:
   --profile, -p <name>              Profile to use (default: {DEFAULT_PROFILE})
                                     Available: test, prod
+  --parent <id>                     Set parent when creating workstream
 
 Examples:
   local-mem list
-  local-mem list --profile prod
+  local-mem tree
   local-mem create "My Project" "Working on the API" --tags backend,api
-  local-mem get ws-1234567890-abc123
-  local-mem note ws-123 "Deployed to staging, testing in progress"
-  local-mem notes ws-123
-  local-mem delete ws-1234567890-abc123
-  local-mem search "API project"
-  local-mem tags backend nodejs
-    """)
+  local-mem create "Sub-Project" "Part of main" --parent ws-123
+  local-mem set-parent ws-456 ws-123   # Make ws-456 a child of ws-123
+  local-mem set-parent ws-456 none     # Remove parent from ws-456
+  local-mem children ws-123            # List children of ws-123
+  local-mem suggest                    # Get relationship suggestions
+    """
+    )
 
 
 async def main() -> None:
@@ -162,13 +258,19 @@ async def main() -> None:
     parser.add_argument("args", nargs="*")
     parser.add_argument("--tags", "-t", help="Comma-separated tags")
     parser.add_argument("--metadata", "-m", help="JSON metadata")
-    parser.add_argument("--profile", "-p", default=DEFAULT_PROFILE, help=f"Profile to use (default: {DEFAULT_PROFILE})")
-    
+    parser.add_argument("--parent", help="Parent workstream ID")
+    parser.add_argument(
+        "--profile",
+        "-p",
+        default=DEFAULT_PROFILE,
+        help=f"Profile to use (default: {DEFAULT_PROFILE})",
+    )
+
     args = parser.parse_args()
-    
+
     storage = WorkstreamStorage(profile=args.profile)
     await storage.initialize()
-    
+
     print(f"[profile: {args.profile}]")
 
     command = args.command
@@ -176,14 +278,19 @@ async def main() -> None:
 
     if command in ("list", "ls"):
         await cmd_list(storage)
+    elif command == "tree":
+        await cmd_tree(storage)
     elif command == "create":
         if len(cmd_args) < 2:
             print("Error: Please provide name and summary", file=sys.stderr)
-            print('Usage: local-mem create "Name" "Summary" [--tags tag1,tag2]', file=sys.stderr)
+            print(
+                'Usage: local-mem create "Name" "Summary" [--tags tag1,tag2]',
+                file=sys.stderr,
+            )
             sys.exit(1)
         tags = args.tags.split(",") if args.tags else []
         metadata = json.loads(args.metadata) if args.metadata else None
-        await cmd_create(storage, cmd_args[0], cmd_args[1], tags, metadata)
+        await cmd_create(storage, cmd_args[0], cmd_args[1], tags, metadata, args.parent)
     elif command == "get":
         if not cmd_args:
             print("Error: Please provide a workstream ID", file=sys.stderr)
@@ -215,6 +322,20 @@ async def main() -> None:
             print("Error: Please provide a workstream ID", file=sys.stderr)
             sys.exit(1)
         await cmd_notes(storage, cmd_args[0])
+    elif command == "children":
+        if not cmd_args:
+            print("Error: Please provide a workstream ID", file=sys.stderr)
+            sys.exit(1)
+        await cmd_children(storage, cmd_args[0])
+    elif command == "set-parent":
+        if len(cmd_args) < 2:
+            print("Error: Please provide workstream ID and parent ID", file=sys.stderr)
+            print('Usage: local-mem set-parent <id> <parent_id>', file=sys.stderr)
+            sys.exit(1)
+        parent_id = None if cmd_args[1].lower() == "none" else cmd_args[1]
+        await cmd_set_parent(storage, cmd_args[0], parent_id)
+    elif command == "suggest":
+        await cmd_suggest(storage)
     elif command in ("help", "--help", "-h"):
         show_help()
     else:
