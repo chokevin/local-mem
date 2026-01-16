@@ -9,10 +9,13 @@ import os
 from pathlib import Path
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Query, Request
+from fastapi import Cookie, FastAPI, Query, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
 from .storage import DEFAULT_PROFILE, WorkstreamStorage
+
+# Cookie name for profile persistence
+PROFILE_COOKIE = "workstream_profile"
 
 # Available profiles
 PROFILES = ["test", "prod"]
@@ -21,9 +24,6 @@ app = FastAPI(title="Workstream Dashboard")
 
 # Storage instances for each profile
 _storages: dict[str, WorkstreamStorage] = {}
-
-# Track file modification time for SSE updates per profile
-_last_modified: dict[str, float] = {}
 
 
 def get_storage(profile: str) -> WorkstreamStorage:
@@ -290,7 +290,7 @@ def get_dashboard_html(current_profile: str) -> str:
             <div class="status">
                 <div class="profile-selector">
                     <label for="profile">Profile:</label>
-                    <select id="profile" onchange="window.location.href='/?profile=' + this.value">
+                    <select id="profile" onchange="document.cookie = 'workstream_profile=' + this.value + ';max-age=31536000;path=/'; window.location.href='/?profile=' + this.value">
                         {profile_options}
                     </select>
                 </div>
@@ -407,15 +407,33 @@ async def startup():
     for profile in PROFILES:
         storage = get_storage(profile)
         await storage.initialize()
-        _last_modified[profile] = 0.0
 
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(profile: str = Query(default=DEFAULT_PROFILE)):
+async def dashboard(
+    response: Response,
+    profile: str | None = Query(default=None),
+    workstream_profile: str | None = Cookie(default=None),
+):
     """Serve the dashboard page."""
-    if profile not in PROFILES:
-        profile = DEFAULT_PROFILE
-    return get_dashboard_html(profile)
+    # Priority: query param > cookie > default
+    if profile is not None:
+        selected_profile = profile if profile in PROFILES else DEFAULT_PROFILE
+    elif workstream_profile is not None:
+        selected_profile = workstream_profile if workstream_profile in PROFILES else DEFAULT_PROFILE
+    else:
+        selected_profile = DEFAULT_PROFILE
+    
+    # Set cookie to persist the profile choice
+    response.set_cookie(
+        key=PROFILE_COOKIE,
+        value=selected_profile,
+        max_age=60 * 60 * 24 * 365,  # 1 year
+        httponly=False,  # Allow JS access for profile switcher
+        samesite="lax",
+    )
+    
+    return get_dashboard_html(selected_profile)
 
 
 @app.get("/events")
@@ -427,7 +445,8 @@ async def events(request: Request, profile: str = Query(default=DEFAULT_PROFILE)
     storage = get_storage(profile)
     
     async def event_generator() -> AsyncGenerator[str, None]:
-        last_mod = _last_modified.get(profile, 0.0)
+        # Track last modification time for THIS connection (not global)
+        last_mod = 0.0  # Start at 0 to force initial send
         
         while True:
             if await request.is_disconnected():
@@ -439,10 +458,9 @@ async def events(request: Request, profile: str = Query(default=DEFAULT_PROFILE)
             except FileNotFoundError:
                 current_modified = 0.0
             
-            # Always send on first connect or when file changes
-            if current_modified != last_mod:
-                last_mod = current_modified
-                _last_modified[profile] = current_modified
+            # Send on first connect (last_mod=0) or when file changes
+            if current_modified != last_mod or last_mod == 0.0:
+                last_mod = current_modified if current_modified > 0 else -1.0  # Mark as sent
                 await storage._load()  # Reload data
                 workstreams = await storage.list()
                 html = render_workstreams(workstreams)

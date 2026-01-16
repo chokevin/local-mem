@@ -57,6 +57,25 @@ Always include a PR description with:
 - **Changes**: Bullet list of specific changes made
 - **Testing**: How the changes were tested
 
+### Testing Web UI Changes
+Before committing web UI changes, use the browser preview to verify:
+
+```bash
+# Open the dashboard in VS Code's Simple Browser
+# Use open_simple_browser tool with these URLs:
+
+http://localhost:8080              # Default profile (test)
+http://localhost:8080/?profile=prod  # Prod profile
+http://localhost:8080/?profile=test  # Explicit test profile
+```
+
+Test checklist for web UI:
+1. Open default URL - verify data loads (not stuck on "Connecting...")
+2. Switch to prod profile - verify data loads
+3. Switch back to test profile - verify data loads (regression check)
+4. Check cookie persistence - reopen URL without `?profile=` param
+5. Verify SSE updates - create/update a workstream via CLI, confirm UI updates live
+
 ## Development
 
 ### Setup
