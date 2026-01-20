@@ -1,4 +1,4 @@
-.PHONY: install dev test test-cov lint format typecheck clean run cli help setup
+.PHONY: install dev test test-cov lint format typecheck clean run cli help setup docker-build docker-up docker-down docker-logs docker-clean
 
 # Default target
 help:
@@ -89,3 +89,21 @@ clean:
 	rm -rf .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
+
+# Docker commands
+docker-build:
+	docker compose build
+
+docker-up:
+	docker compose up -d
+	@echo "✓ local-mem is running at http://localhost:8080"
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f
+
+docker-clean:
+	docker compose down --rmi local -v
+
