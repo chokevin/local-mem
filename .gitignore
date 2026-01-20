@@ -17,3 +17,6 @@ build/
 
 # Beads issue tracking
 .beads/
+
+# Bead worktrees
+.worktrees/
