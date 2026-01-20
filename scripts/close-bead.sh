@@ -24,6 +24,12 @@ if [ -f "scripts/test-docker.sh" ]; then
     ./scripts/test-docker.sh
 fi
 
+# 2b. Run E2E tests if available
+if grep -q "test-e2e" Makefile 2>/dev/null; then
+    echo "1b. Running E2E tests..."
+    make test-e2e || echo "   E2E tests failed or skipped"
+fi
+
 # 3. Create branch if not already on one
 CURRENT_BRANCH=$(git branch --show-current)
 if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
