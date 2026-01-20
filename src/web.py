@@ -13,6 +13,12 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .storage import DEFAULT_PROFILE, WorkstreamStorage
+from .templates import (
+    CreateTemplateRequest,
+    InstantiateTemplateRequest,
+    TemplateStorage,
+    WorkstreamTemplate,
+)
 from .types import CreateWorkstreamRequest, UpdateWorkstreamRequest
 
 
@@ -88,6 +94,56 @@ class SearchModel(BaseModel):
 
     model_config = {"populate_by_name": True}
 
+
+# Pydantic models for Template API
+class TemplateResponse(BaseModel):
+    """Pydantic model for template response."""
+
+    id: str
+    name: str
+    description: str
+    default_tags: list[str] = Field(default_factory=list, alias="defaultTags")
+    default_metadata: dict[str, Any] = Field(default_factory=dict, alias="defaultMetadata")
+    note_templates: list[str] = Field(default_factory=list, alias="noteTemplates")
+    created_at: str = Field(alias="createdAt")
+    updated_at: str = Field(alias="updatedAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class CreateTemplateModel(BaseModel):
+    """Pydantic model for creating a template."""
+
+    name: str = Field(..., min_length=1, description="Template name")
+    description: str = Field(..., description="Template description")
+    default_tags: list[str] = Field(
+        default_factory=list, alias="defaultTags", description="Default tags for workstreams"
+    )
+    default_metadata: dict[str, Any] = Field(
+        default_factory=dict, alias="defaultMetadata", description="Default metadata"
+    )
+    note_templates: list[str] = Field(
+        default_factory=list, alias="noteTemplates", description="Initial note templates"
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class InstantiateTemplateModel(BaseModel):
+    """Pydantic model for instantiating a template."""
+
+    name: str = Field(..., min_length=1, description="Workstream name")
+    summary: str = Field(..., description="Workstream summary")
+    additional_tags: list[str] = Field(
+        default_factory=list, alias="additionalTags", description="Additional tags"
+    )
+    metadata_overrides: dict[str, Any] = Field(
+        default_factory=dict, alias="metadataOverrides", description="Metadata overrides"
+    )
+    parent_id: str | None = Field(default=None, alias="parentId", description="Parent workstream ID")
+
+    model_config = {"populate_by_name": True}
+
 # Cookie name for profile persistence
 PROFILE_COOKIE = "workstream_profile"
 
@@ -98,6 +154,7 @@ app = FastAPI(title="Workstream Dashboard")
 
 # Storage instances for each profile
 _storages: dict[str, WorkstreamStorage] = {}
+_template_storages: dict[str, TemplateStorage] = {}
 
 
 def get_storage(profile: str) -> WorkstreamStorage:
@@ -105,6 +162,13 @@ def get_storage(profile: str) -> WorkstreamStorage:
     if profile not in _storages:
         _storages[profile] = WorkstreamStorage(profile=profile)
     return _storages[profile]
+
+
+def get_template_storage(profile: str) -> TemplateStorage:
+    """Get or create template storage for a profile."""
+    if profile not in _template_storages:
+        _template_storages[profile] = TemplateStorage(profile=profile)
+    return _template_storages[profile]
 
 
 def get_dashboard_html(current_profile: str) -> str:
@@ -1715,6 +1779,99 @@ async def search_workstreams(
                 results.append(ws)
 
     return [ws.to_dict() for ws in results]
+
+
+# ============== Template API Endpoints ==============
+
+
+@app.get("/api/templates")
+async def list_templates(profile: str = Query(default=DEFAULT_PROFILE)):
+    """List all templates."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    template_storage = get_template_storage(profile)
+    await template_storage.initialize()
+
+    templates = await template_storage.list_templates()
+    return [t.to_dict() for t in templates]
+
+
+@app.post("/api/templates", response_model=TemplateResponse, status_code=201)
+async def create_template(
+    data: CreateTemplateModel, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Create a new template."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    template_storage = get_template_storage(profile)
+    await template_storage.initialize()
+
+    request = CreateTemplateRequest(
+        name=data.name,
+        description=data.description,
+        default_tags=data.default_tags,
+        default_metadata=data.default_metadata,
+        note_templates=data.note_templates,
+    )
+    template = await template_storage.create_template(request)
+    return template.to_dict()
+
+
+@app.get("/api/templates/{template_id}", response_model=TemplateResponse)
+async def get_template(template_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
+    """Get a template by ID."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    template_storage = get_template_storage(profile)
+    await template_storage.initialize()
+
+    template = await template_storage.get_template(template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return template.to_dict()
+
+
+@app.delete("/api/templates/{template_id}")
+async def delete_template(template_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
+    """Delete a template."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    template_storage = get_template_storage(profile)
+    await template_storage.initialize()
+
+    deleted = await template_storage.delete_template(template_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {"message": f"Template {template_id} deleted"}
+
+
+@app.post("/api/templates/{template_id}/instantiate", response_model=WorkstreamResponse, status_code=201)
+async def instantiate_template(
+    template_id: str,
+    data: InstantiateTemplateModel,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Create a workstream from a template."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    template_storage = get_template_storage(profile)
+    await template_storage.initialize()
+    storage = get_storage(profile)
+    await storage._load()
+
+    request = InstantiateTemplateRequest(
+        template_id=template_id,
+        name=data.name,
+        summary=data.summary,
+        additional_tags=data.additional_tags,
+        metadata_overrides=data.metadata_overrides,
+        parent_id=data.parent_id,
+    )
+
+    workstream = await template_storage.create_from_template(request, storage)
+    if not workstream:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return workstream.to_dict()
 
 
 def main():

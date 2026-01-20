@@ -21,6 +21,11 @@ from mcp.types import (
 
 from .indexers import GitHubIndexer
 from .storage import DEFAULT_PROFILE, WorkstreamStorage
+from .templates import (
+    CreateTemplateRequest,
+    InstantiateTemplateRequest,
+    TemplateStorage,
+)
 from .types import CreateWorkstreamRequest, UpdateWorkstreamRequest
 from .indexers.outlook_indexer import OutlookIndexer
 from .indexers.teams_indexer import TeamsIndexer, TeamsIndexerError
@@ -31,6 +36,7 @@ PROFILE = os.environ.get("MEM_PROFILE", DEFAULT_PROFILE)
 # Initialize MCP server
 server = Server("local-mem")
 storage = WorkstreamStorage(profile=PROFILE)
+template_storage = TemplateStorage(profile=PROFILE)
 
 
 def get_tools() -> list[Tool]:
@@ -333,6 +339,82 @@ Set these environment variables:
                         "description": "Additional tags to add to all created workstreams",
                     },
                 },
+            },
+        ),
+        # Template tools
+        Tool(
+            name="create_template",
+            description="Create a reusable workstream template with default tags, metadata, and note templates",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Template name",
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Template description",
+                    },
+                    "default_tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Default tags to apply to workstreams created from this template",
+                    },
+                    "default_metadata": {
+                        "type": "object",
+                        "description": "Default metadata for workstreams created from this template",
+                    },
+                    "note_templates": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Initial notes to add to workstreams created from this template",
+                    },
+                },
+                "required": ["name", "description"],
+            },
+        ),
+        Tool(
+            name="list_templates",
+            description="List all workstream templates",
+            inputSchema={
+                "type": "object",
+                "properties": {},
+            },
+        ),
+        Tool(
+            name="create_workstream_from_template",
+            description="Create a new workstream from a template, optionally with overrides",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "template_id": {
+                        "type": "string",
+                        "description": "Template ID to use",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Workstream name",
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": "Workstream summary/description",
+                    },
+                    "additional_tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Additional tags to add (merged with template defaults)",
+                    },
+                    "metadata_overrides": {
+                        "type": "object",
+                        "description": "Metadata to override template defaults",
+                    },
+                    "parent_id": {
+                        "type": "string",
+                        "description": "Parent workstream ID (optional)",
+                    },
+                },
+                "required": ["template_id", "name", "summary"],
             },
         ),
     ]
@@ -690,6 +772,53 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 )
             ]
 
+        elif name == "create_template":
+            request = CreateTemplateRequest(
+                name=arguments["name"],
+                description=arguments["description"],
+                default_tags=arguments.get("default_tags", []),
+                default_metadata=arguments.get("default_metadata", {}),
+                note_templates=arguments.get("note_templates", []),
+            )
+            template = await template_storage.create_template(request)
+            return [
+                TextContent(
+                    type="text", text=json.dumps(template.to_dict(), indent=2)
+                )
+            ]
+
+        elif name == "list_templates":
+            templates = await template_storage.list_templates()
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps([t.to_dict() for t in templates], indent=2),
+                )
+            ]
+
+        elif name == "create_workstream_from_template":
+            request = InstantiateTemplateRequest(
+                template_id=arguments["template_id"],
+                name=arguments["name"],
+                summary=arguments["summary"],
+                additional_tags=arguments.get("additional_tags", []),
+                metadata_overrides=arguments.get("metadata_overrides", {}),
+                parent_id=arguments.get("parent_id"),
+            )
+            workstream = await template_storage.create_from_template(request, storage)
+            if not workstream:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Template with ID "{arguments["template_id"]}" not found',
+                    )
+                ]
+            return [
+                TextContent(
+                    type="text", text=json.dumps(workstream.to_dict(), indent=2)
+                )
+            ]
+
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -729,14 +858,16 @@ async def read_resource(uri: str) -> str:
 
 async def main() -> None:
     """Run the MCP server."""
-    global storage, PROFILE
+    global storage, template_storage, PROFILE
 
     # Check for profile argument
     if len(sys.argv) > 1 and sys.argv[1].startswith("--profile="):
         PROFILE = sys.argv[1].split("=")[1]
         storage = WorkstreamStorage(profile=PROFILE)
+        template_storage = TemplateStorage(profile=PROFILE)
 
     await storage.initialize()
+    await template_storage.initialize()
     print(
         f"Local Memory MCP Server running on stdio [profile: {PROFILE}]",
         file=sys.stderr,
