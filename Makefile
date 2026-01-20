@@ -49,7 +49,7 @@ run:
 	MEM_PROFILE=$(PROFILE) uv run python -m src.server
 
 ui:
-	uv run python -m src.web
+	uv run python -m src.web --force
 
 cli:
 	uv run python -m src.cli --profile $(PROFILE) $(ARGS)

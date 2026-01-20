@@ -177,17 +177,30 @@ class WorkstreamStorage:
             if lower_query in w.name.lower() or lower_query in w.summary.lower()
         ]
 
-    async def add_note(self, id: str, note: str) -> Optional[Workstream]:
-        """Add a note to a workstream."""
+    async def add_note(
+        self, id: str, note: str, category: str | None = None
+    ) -> Optional[Workstream]:
+        """Add a note to a workstream.
+        
+        Args:
+            id: Workstream ID
+            note: Note content
+            category: Optional category (decision, blocker, changed, context, tried, resume, other)
+        """
         from datetime import datetime
 
         workstream = self._workstreams.get(id)
         if not workstream:
             return None
 
-        # Add timestamped note
+        # Add timestamped note with optional category prefix
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        workstream.notes.append(f"[{timestamp}] {note}")
+        if category and category != "other":
+            formatted_note = f"[{timestamp}] [{category.upper()}] {note}"
+        else:
+            formatted_note = f"[{timestamp}] {note}"
+        
+        workstream.notes.append(formatted_note)
         workstream.updated_at = datetime.now().isoformat()
 
         self._workstreams[workstream.id] = workstream
