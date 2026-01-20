@@ -248,6 +248,51 @@ LOW-VALUE notes (skip these):
             },
         ),
         Tool(
+            name="edit_note",
+            description="Edit an existing note in a workstream by index",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Workstream ID",
+                    },
+                    "note_index": {
+                        "type": "integer",
+                        "description": "Index of the note to edit (0-based)",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "New content for the note",
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["decision", "blocker", "changed", "context", "tried", "resume", "other"],
+                        "description": "Category of the note (optional)",
+                    },
+                },
+                "required": ["id", "note_index", "content"],
+            },
+        ),
+        Tool(
+            name="delete_note",
+            description="Delete a note from a workstream by index",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Workstream ID",
+                    },
+                    "note_index": {
+                        "type": "integer",
+                        "description": "Index of the note to delete (0-based)",
+                    },
+                },
+                "required": ["id", "note_index"],
+            },
+        ),
+        Tool(
             name="index_github_repo",
             description="Index a GitHub repository and create a workstream with its README, recent PRs, and issues. Requires GITHUB_TOKEN environment variable for authentication.",
             inputSchema={
@@ -488,7 +533,49 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                 ]
             if not notes:
                 return [TextContent(type="text", text="No notes yet.")]
-            return [TextContent(type="text", text="\n\n".join(notes))]
+            # Include index for easier reference
+            indexed_notes = [f"[{i}] {note}" for i, note in enumerate(notes)]
+            return [TextContent(type="text", text="\n\n".join(indexed_notes))]
+
+        elif name == "edit_note":
+            category = arguments.get("category")
+            workstream = await storage.update_note(
+                arguments["id"],
+                arguments["note_index"],
+                arguments["content"],
+                category,
+            )
+            if not workstream:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Workstream with ID "{arguments["id"]}" not found or note index {arguments["note_index"]} is out of range',
+                    )
+                ]
+            return [
+                TextContent(
+                    type="text",
+                    text=f'Note {arguments["note_index"]} updated in "{workstream.name}". Total notes: {len(workstream.notes)}',
+                )
+            ]
+
+        elif name == "delete_note":
+            workstream = await storage.delete_note(
+                arguments["id"], arguments["note_index"]
+            )
+            if not workstream:
+                return [
+                    TextContent(
+                        type="text",
+                        text=f'Workstream with ID "{arguments["id"]}" not found or note index {arguments["note_index"]} is out of range',
+                    )
+                ]
+            return [
+                TextContent(
+                    type="text",
+                    text=f'Note {arguments["note_index"]} deleted from "{workstream.name}". Remaining notes: {len(workstream.notes)}',
+                )
+            ]
 
         elif name == "index_github_repo":
             owner = arguments["owner"]

@@ -77,6 +77,16 @@ class AddNoteModel(BaseModel):
     )
 
 
+class UpdateNoteModel(BaseModel):
+    """Pydantic model for updating a note."""
+
+    content: str = Field(..., min_length=1, description="New note content")
+    category: str | None = Field(
+        default=None,
+        description="Note category (decision, blocker, changed, context, tried, resume, other)",
+    )
+
+
 class SearchModel(BaseModel):
     """Pydantic model for search requests."""
 
@@ -1666,6 +1676,59 @@ async def add_note(
     ws = await storage.add_note(workstream_id, data.note, data.category)
     if not ws:
         raise HTTPException(status_code=404, detail="Workstream not found")
+    return ws.to_dict()
+
+
+@app.get("/api/workstreams/{workstream_id}/notes")
+async def get_notes(
+    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Get all notes for a workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    notes = await storage.get_notes(workstream_id)
+    if notes is None:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+    return {"notes": [{"index": i, "content": note} for i, note in enumerate(notes)]}
+
+
+@app.put("/api/workstreams/{workstream_id}/notes/{note_index}", response_model=WorkstreamResponse)
+async def update_note(
+    workstream_id: str,
+    note_index: int,
+    data: UpdateNoteModel,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Update a note at a specific index."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    ws = await storage.update_note(workstream_id, note_index, data.content, data.category)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream or note not found")
+    return ws.to_dict()
+
+
+@app.delete("/api/workstreams/{workstream_id}/notes/{note_index}", response_model=WorkstreamResponse)
+async def delete_note(
+    workstream_id: str,
+    note_index: int,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Delete a note at a specific index."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    ws = await storage.delete_note(workstream_id, note_index)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream or note not found")
     return ws.to_dict()
 
 
