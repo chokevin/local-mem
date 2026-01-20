@@ -1513,6 +1513,9 @@ def main():
         "--port", type=int, default=8080, help="Port to run on (default: 8080)"
     )
     parser.add_argument(
+        "--host", type=str, default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)"
+    )
+    parser.add_argument(
         "--force", "-f", action="store_true", help="Kill existing process on port if needed"
     )
     args = parser.parse_args()
@@ -1566,7 +1569,7 @@ def main():
     # Configure uvicorn for clean shutdown
     config = uvicorn.Config(
         app,
-        host="0.0.0.0",
+        host=args.host,
         port=args.port,
         log_level="warning",  # Reduce noise
         timeout_graceful_shutdown=2,  # Quick shutdown

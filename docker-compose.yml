@@ -1,0 +1,43 @@
+services:
+  mem-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: local-mem
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount local data for development (persists locally)
+      - ./data:/app/data
+    environment:
+      - MEM_PROFILE=test
+      - MEM_DATA_DIR=/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/workstreams"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # MCP server service (optional, for API access)
+  mem-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: local-mem-server
+    command: ["python", "-m", "src.server"]
+    ports:
+      - "3000:3000"
+    volumes:
+      - mem-data:/app/data
+    environment:
+      - MEM_PROFILE=prod
+      - MEM_DATA_DIR=/app/data
+    restart: unless-stopped
+    profiles:
+      - full  # Only starts with: docker compose --profile full up
+
+volumes:
+  mem-data:
+    driver: local
