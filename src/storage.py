@@ -10,7 +10,7 @@ import random
 import string
 import time
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .types import (
     CreateWorkstreamRequest,
@@ -18,6 +18,9 @@ from .types import (
     Workstream,
     WorkstreamMetadata,
 )
+
+if TYPE_CHECKING:
+    from .search import SearchEngine
 
 
 # Default profile
@@ -32,12 +35,25 @@ class WorkstreamStorage:
         self.profile = profile or DEFAULT_PROFILE
         self.data_file = self.data_dir / f"workstreams.{self.profile}.json"
         self._workstreams: dict[str, Workstream] = {}
+        self._search_engine: Optional["SearchEngine"] = None
+
+    def _get_search_engine(self) -> "SearchEngine":
+        """Get or create the search engine for this storage instance."""
+        if self._search_engine is None:
+            from .search import SearchEngine
+            self._search_engine = SearchEngine(
+                index_dir=str(self.data_dir / "search_index"),
+                profile=self.profile,
+            )
+        return self._search_engine
 
     async def initialize(self) -> None:
         """Initialize storage by creating data directory and loading existing data."""
         try:
             self.data_dir.mkdir(parents=True, exist_ok=True)
             await self._load()
+            # Rebuild search index on initialization
+            self._get_search_engine().rebuild_index(list(self._workstreams.values()))
         except Exception as error:
             print(f"Failed to initialize storage: {error}")
             raise
@@ -87,6 +103,8 @@ class WorkstreamStorage:
 
         self._workstreams[workstream.id] = workstream
         await self._save()
+        # Update search index
+        self._get_search_engine().index_workstream(workstream)
         return workstream
 
     async def get(self, id: str) -> Optional[Workstream]:
@@ -125,6 +143,8 @@ class WorkstreamStorage:
 
         self._workstreams[workstream.id] = workstream
         await self._save()
+        # Update search index
+        self._get_search_engine().index_workstream(workstream)
         return workstream
 
     async def delete(self, id: str) -> bool:
@@ -132,6 +152,8 @@ class WorkstreamStorage:
         if id in self._workstreams:
             del self._workstreams[id]
             await self._save()
+            # Remove from search index
+            self._get_search_engine().remove_workstream(id)
             return True
         return False
 
@@ -151,6 +173,8 @@ class WorkstreamStorage:
 
         self._workstreams[workstream.id] = workstream
         await self._save()
+        # Update search index
+        self._get_search_engine().index_workstream(workstream)
         return workstream
 
     async def search_by_tags(
@@ -167,7 +191,7 @@ class WorkstreamStorage:
             return [w for w in workstreams_list if any(tag in w.tags for tag in tags)]
 
     async def search(self, query: str) -> list[Workstream]:
-        """Search workstreams by name or summary."""
+        """Search workstreams by name or summary (simple search)."""
         workstreams_list = list(self._workstreams.values())
         lower_query = query.lower()
 
@@ -176,6 +200,22 @@ class WorkstreamStorage:
             for w in workstreams_list
             if lower_query in w.name.lower() or lower_query in w.summary.lower()
         ]
+
+    async def fulltext_search(
+        self, query: str, limit: int = 20, fields: list[str] | None = None
+    ) -> list[dict]:
+        """
+        Full-text search across workstreams.
+
+        Args:
+            query: Search query with AND/OR support
+            limit: Maximum results to return
+            fields: Fields to search (default: name, summary, notes, tags)
+
+        Returns:
+            List of search results with scores and highlights
+        """
+        return self._get_search_engine().search(query, limit=limit, fields=fields)
 
     async def add_note(
         self, id: str, note: str, category: str | None = None
@@ -205,6 +245,8 @@ class WorkstreamStorage:
 
         self._workstreams[workstream.id] = workstream
         await self._save()
+        # Update search index
+        self._get_search_engine().index_workstream(workstream)
         return workstream
 
     async def get_notes(self, id: str) -> Optional[list[str]]:
