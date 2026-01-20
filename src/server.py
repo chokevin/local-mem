@@ -196,7 +196,20 @@ def get_tools() -> list[Tool]:
         ),
         Tool(
             name="add_note",
-            description="Add a contextual note to a workstream. Use this to capture decisions, progress, blockers, or any relevant context.",
+            description="""Add a contextual note to a workstream. Notes should capture information that helps resume work later.
+
+HIGH-VALUE notes (add these):
+- DECISION: Design choices with rationale ("Chose X over Y because Z")
+- BLOCKER: Issues encountered and how they were resolved
+- CHANGED: Dependency updates, breaking changes, migrations
+- CONTEXT: External requirements, stakeholder input, priority shifts
+- TRIED: Approaches attempted that didn't work (avoid repeating)
+- RESUME: Where to pick up, what's next, current state
+
+LOW-VALUE notes (skip these):
+- File structure (already in repo)
+- How to run commands (already in README)
+- Basic project description (that's the summary field)""",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -206,7 +219,12 @@ def get_tools() -> list[Tool]:
                     },
                     "note": {
                         "type": "string",
-                        "description": "The note content to add",
+                        "description": "The note content. Start with a category prefix (DECISION:, BLOCKER:, CHANGED:, CONTEXT:, TRIED:, RESUME:) for better organization.",
+                    },
+                    "category": {
+                        "type": "string",
+                        "enum": ["decision", "blocker", "changed", "context", "tried", "resume", "other"],
+                        "description": "Category of the note (optional, helps with filtering)",
                     },
                 },
                 "required": ["id", "note"],
@@ -350,7 +368,10 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
             ]
 
         elif name == "add_note":
-            workstream = await storage.add_note(arguments["id"], arguments["note"])
+            category = arguments.get("category")
+            workstream = await storage.add_note(
+                arguments["id"], arguments["note"], category
+            )
             if not workstream:
                 return [
                     TextContent(

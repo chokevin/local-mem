@@ -94,13 +94,16 @@ async def cmd_tags(storage: WorkstreamStorage, tags: list[str]) -> None:
         print(f"  Tags: {', '.join(w.tags)}")
 
 
-async def cmd_note(storage: WorkstreamStorage, workstream_id: str, note: str) -> None:
+async def cmd_note(
+    storage: WorkstreamStorage, workstream_id: str, note: str, category: str | None = None
+) -> None:
     """Add a note to a workstream."""
-    workstream = await storage.add_note(workstream_id, note)
+    workstream = await storage.add_note(workstream_id, note, category)
     if not workstream:
         print(f"Workstream {workstream_id} not found", file=sys.stderr)
         sys.exit(1)
-    print(f"Note added to '{workstream.name}'. Total notes: {len(workstream.notes)}")
+    cat_msg = f" [{category.upper()}]" if category else ""
+    print(f"Note{cat_msg} added to '{workstream.name}'. Total notes: {len(workstream.notes)}")
 
 
 async def cmd_notes(storage: WorkstreamStorage, workstream_id: str) -> None:
@@ -223,7 +226,7 @@ Commands:
   delete <id>                       Delete a workstream
   search <query>                    Search workstreams by name or summary
   tags <tag1> [tag2]                Search workstreams by tags
-  note <id> <note>                  Add a note to a workstream
+  note <id> <note> [--cat TYPE]     Add a note (types: decision,blocker,changed,context,tried,resume)
   notes <id>                        Show all notes for a workstream
   children <id>                     List child workstreams
   set-parent <id> <parent_id>       Set parent (use 'none' to clear)
@@ -259,6 +262,11 @@ async def main() -> None:
     parser.add_argument("--tags", "-t", help="Comma-separated tags")
     parser.add_argument("--metadata", "-m", help="JSON metadata")
     parser.add_argument("--parent", help="Parent workstream ID")
+    parser.add_argument(
+        "--cat", "-c",
+        choices=["decision", "blocker", "changed", "context", "tried", "resume", "other"],
+        help="Note category (decision, blocker, changed, context, tried, resume)",
+    )
     parser.add_argument(
         "--profile",
         "-p",
@@ -314,9 +322,9 @@ async def main() -> None:
     elif command == "note":
         if len(cmd_args) < 2:
             print("Error: Please provide workstream ID and note", file=sys.stderr)
-            print('Usage: local-mem note <id> "Your note here"', file=sys.stderr)
+            print('Usage: local-mem note <id> "Your note here" [--cat decision|blocker|changed|context|tried|resume]', file=sys.stderr)
             sys.exit(1)
-        await cmd_note(storage, cmd_args[0], " ".join(cmd_args[1:]))
+        await cmd_note(storage, cmd_args[0], " ".join(cmd_args[1:]), args.cat)
     elif command == "notes":
         if not cmd_args:
             print("Error: Please provide a workstream ID", file=sys.stderr)

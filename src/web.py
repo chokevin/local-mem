@@ -161,6 +161,29 @@ def get_dashboard_html(current_profile: str) -> str:
             stroke-dasharray: 4,4;
         }}
         
+        .link.hub-link {{
+            stroke: url(#hubLinkGradient);
+            stroke-width: 1.5;
+            stroke-opacity: 0.5;
+        }}
+        
+        .link.hub-link:hover {{
+            stroke-opacity: 0.8;
+        }}
+        
+        .node.hub-node circle {{
+            fill: url(#hubGradient);
+            stroke: #58a6ff;
+            stroke-width: 2;
+            filter: drop-shadow(0 0 12px rgba(88, 166, 255, 0.4));
+        }}
+        
+        .node.hub-node text {{
+            fill: #c9d1d9;
+            font-size: 11px;
+            font-weight: 600;
+        }}
+        
         .node {{
             cursor: pointer;
         }}
@@ -298,9 +321,9 @@ def get_dashboard_html(current_profile: str) -> str:
         }}
         
         .panel-type.standalone {{
-            background: linear-gradient(135deg, #8b949e20, #8b949e10);
-            color: #8b949e;
-            border: 1px solid #8b949e30;
+            background: linear-gradient(135deg, #3fb95020, #3fb95010);
+            color: #3fb950;
+            border: 1px solid #3fb95030;
         }}
         
         .panel-type .type-dot {{
@@ -311,7 +334,7 @@ def get_dashboard_html(current_profile: str) -> str:
         
         .panel-type.program .type-dot {{ background: #f0883e; box-shadow: 0 0 8px #f0883e; }}
         .panel-type.project .type-dot {{ background: #58a6ff; box-shadow: 0 0 8px #58a6ff; }}
-        .panel-type.standalone .type-dot {{ background: #8b949e; }}
+        .panel-type.standalone .type-dot {{ background: #3fb950; box-shadow: 0 0 8px #3fb950; }}
         
         .panel-header h2 {{
             font-size: 1.35rem;
@@ -466,6 +489,143 @@ def get_dashboard_html(current_profile: str) -> str:
             margin-bottom: 0;
         }}
         
+        .panel-note.note-decision {{
+            border-left-color: #3fb950;
+            background: linear-gradient(90deg, #3fb95010 0%, #0d1117 30%);
+        }}
+        
+        .panel-note.note-blocker {{
+            border-left-color: #f85149;
+            background: linear-gradient(90deg, #f8514910 0%, #0d1117 30%);
+        }}
+        
+        .panel-note.note-changed {{
+            border-left-color: #a371f7;
+            background: linear-gradient(90deg, #a371f710 0%, #0d1117 30%);
+        }}
+        
+        .panel-note.note-context {{
+            border-left-color: #58a6ff;
+            background: linear-gradient(90deg, #58a6ff10 0%, #0d1117 30%);
+        }}
+        
+        .panel-note.note-tried {{
+            border-left-color: #f0883e;
+            background: linear-gradient(90deg, #f0883e10 0%, #0d1117 30%);
+        }}
+        
+        .panel-note.note-resume {{
+            border-left-color: #d29922;
+            background: linear-gradient(90deg, #d2992210 0%, #0d1117 30%);
+        }}
+        
+        .note-category {{
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }}
+        
+        .note-decision .note-category {{ background: #3fb95020; color: #3fb950; }}
+        .note-blocker .note-category {{ background: #f8514920; color: #f85149; }}
+        .note-changed .note-category {{ background: #a371f720; color: #a371f7; }}
+        .note-context .note-category {{ background: #58a6ff20; color: #58a6ff; }}
+        .note-tried .note-category {{ background: #f0883e20; color: #f0883e; }}
+        .note-resume .note-category {{ background: #d2992220; color: #d29922; }}
+        
+        .note-timestamp {{
+            font-size: 0.7rem;
+            color: #6e7681;
+            margin-bottom: 0.25rem;
+        }}
+        
+        .note-content {{
+            color: #c9d1d9;
+        }}
+        
+        .notes-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            padding: 0.5rem 0;
+        }}
+        
+        .notes-header:hover {{
+            opacity: 0.8;
+        }}
+        
+        .notes-toggle {{
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }}
+        
+        .notes-toggle:hover {{
+            color: #c9d1d9;
+        }}
+        
+        .notes-container {{
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }}
+        
+        .notes-container.expanded {{
+            max-height: 2000px;
+        }}
+        
+        .notes-summary {{
+            font-size: 0.8rem;
+            color: #6e7681;
+            padding: 0.5rem 0;
+        }}
+        
+        .notes-pagination {{
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #21262d;
+        }}
+        
+        .notes-page-btn {{
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        
+        .notes-page-btn:hover {{
+            background: #30363d;
+            border-color: #8b949e;
+        }}
+        
+        .notes-page-btn:disabled {{
+            opacity: 0.5;
+            cursor: not-allowed;
+        }}
+        
+        .notes-page-btn.active {{
+            background: #58a6ff;
+            border-color: #58a6ff;
+            color: #0d1117;
+        }}
+        
         .panel-meta {{
             display: grid;
             gap: 0.75rem;
@@ -555,7 +715,19 @@ def get_dashboard_html(current_profile: str) -> str:
     </style>
 </head>
 <body>
-    <svg id="graph"></svg>
+    <svg id="graph">
+        <defs>
+            <radialGradient id="hubGradient" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:0.3" />
+                <stop offset="50%" style="stop-color:#30363d;stop-opacity:0.6" />
+                <stop offset="100%" style="stop-color:#21262d;stop-opacity:0.8" />
+            </radialGradient>
+            <linearGradient id="hubLinkGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:0.6" />
+                <stop offset="100%" style="stop-color:#30363d;stop-opacity:0.2" />
+            </linearGradient>
+        </defs>
+    </svg>
     
     <div class="header">
         <div class="header-left">
@@ -598,8 +770,17 @@ def get_dashboard_html(current_profile: str) -> str:
                 <div class="panel-connections" id="panel-connections"></div>
             </div>
             <div class="panel-section" id="panel-notes-section" style="display:none">
-                <div class="panel-section-title">Notes</div>
-                <div id="panel-notes"></div>
+                <div class="notes-header" onclick="toggleNotes()">
+                    <div class="panel-section-title" style="margin-bottom:0">Notes <span id="notes-count"></span></div>
+                    <button class="notes-toggle" id="notes-toggle">
+                        <span id="toggle-icon">▶</span> <span id="toggle-text">Show</span>
+                    </button>
+                </div>
+                <div class="notes-summary" id="notes-summary"></div>
+                <div class="notes-container" id="notes-container">
+                    <div id="panel-notes"></div>
+                    <div class="notes-pagination" id="notes-pagination"></div>
+                </div>
             </div>
             <div class="panel-section" id="panel-meta-section" style="display:none">
                 <div class="panel-section-title">Metadata</div>
@@ -618,8 +799,8 @@ def get_dashboard_html(current_profile: str) -> str:
             <span>Project</span>
         </div>
         <div class="legend-item">
-            <div class="legend-dot" style="background: #8b949e"></div>
-            <span>Standalone</span>
+            <div class="legend-dot" style="background: #3fb950"></div>
+            <span>Not Connected</span>
         </div>
     </div>
     
@@ -683,23 +864,45 @@ def get_dashboard_html(current_profile: str) -> str:
             // Determine node types
             const parentIds = new Set(workstreams.filter(w => w.parentId).map(w => w.parentId));
             
-            // Build nodes
-            nodes = workstreams.map(ws => {{
+            // Build nodes - start with hub node (You - the center of all workstreams)
+            nodes = [{{
+                id: '__hub__',
+                name: 'You',
+                type: 'hub',
+                tags: [],
+                radius: 18,
+                color: '#58a6ff',
+                fx: width / 2,  // Fixed at center
+                fy: height / 2
+            }}];
+            
+            // Add workstream nodes
+            workstreams.forEach(ws => {{
                 const isProgram = parentIds.has(ws.id);
                 const isProject = !!ws.parentId;
-                return {{
+                nodes.push({{
                     id: ws.id,
                     name: ws.name,
                     type: isProgram ? 'program' : (isProject ? 'project' : 'standalone'),
                     parentId: ws.parentId,
                     tags: ws.tags || [],
                     radius: isProgram ? 28 : (isProject ? 20 : 16),
-                    color: isProgram ? '#f0883e' : (isProject ? '#58a6ff' : '#8b949e')
-                }};
+                    color: isProgram ? '#f0883e' : (isProject ? '#58a6ff' : '#3fb950')
+                }});
             }});
             
             // Build links with varying strengths based on affinity
             links = [];
+            
+            // Hub links - connect everything to center (very weak)
+            workstreams.forEach(ws => {{
+                links.push({{
+                    source: '__hub__',
+                    target: ws.id,
+                    type: 'hub-link',
+                    strength: 0.03
+                }});
+            }});
             
             // Parent-child links (strong attraction)
             workstreams.forEach(ws => {{
@@ -747,7 +950,7 @@ def get_dashboard_html(current_profile: str) -> str:
             
             simulation.force('link', d3.forceLink(links)
                 .id(d => d.id)
-                .distance(d => d.type === 'parent-child' ? 100 : 180)
+                .distance(d => d.type === 'parent-child' ? 100 : (d.type === 'hub-link' ? 250 : 180))
                 .strength(d => d.strength)
             );
             
@@ -770,7 +973,7 @@ def get_dashboard_html(current_profile: str) -> str:
             
             const nodeEnter = node.enter()
                 .append('g')
-                .attr('class', 'node')
+                .attr('class', d => d.type === 'hub' ? 'node hub-node' : 'node')
                 .call(d3.drag()
                     .on('start', dragstarted)
                     .on('drag', dragged)
@@ -778,16 +981,17 @@ def get_dashboard_html(current_profile: str) -> str:
                 )
                 .on('click', (event, d) => {{
                     event.stopPropagation();
-                    selectNode(d);
+                    if (d.type !== 'hub') selectNode(d);
                 }});
             
             // Node circle
             nodeEnter.append('circle')
                 .attr('r', d => d.radius)
-                .attr('fill', d => d.color);
+                .attr('fill', d => d.type === 'hub' ? 'url(#hubGradient)' : d.color);
             
-            // Inner highlight
-            nodeEnter.append('circle')
+            // Inner highlight (skip for hub)
+            nodeEnter.filter(d => d.type !== 'hub')
+                .append('circle')
                 .attr('r', d => d.radius * 0.4)
                 .attr('fill', 'rgba(255,255,255,0.3)');
             
@@ -795,13 +999,21 @@ def get_dashboard_html(current_profile: str) -> str:
             nodeEnter.append('text')
                 .attr('class', 'node-label')
                 .attr('dy', d => d.radius + 16)
-                .text(d => d.name.length > 18 ? d.name.slice(0, 16) + '...' : d.name);
+                .text(d => d.type === 'hub' ? 'You' : (d.name.length > 18 ? d.name.slice(0, 16) + '...' : d.name));
             
-            // Sublabel (tag count)
-            nodeEnter.append('text')
+            // Sublabel (tag count) - skip for hub, add connection count for hub
+            nodeEnter.filter(d => d.type !== 'hub')
+                .append('text')
                 .attr('class', 'node-sublabel')
                 .attr('dy', d => d.radius + 28)
                 .text(d => `${{d.tags.length}} tags`);
+            
+            // Hub sublabel - show connected count
+            nodeEnter.filter(d => d.type === 'hub')
+                .append('text')
+                .attr('class', 'node-sublabel')
+                .attr('dy', d => d.radius + 28)
+                .text(d => `${{workstreams.length}} workstreams`);
             
             simulation.alpha(1).restart();
         }}
@@ -972,9 +1184,51 @@ def get_dashboard_html(current_profile: str) -> str:
             // Notes
             const notesSection = document.getElementById('panel-notes-section');
             const notesContainer = document.getElementById('panel-notes');
+            const notesSummary = document.getElementById('notes-summary');
+            const notesCount = document.getElementById('notes-count');
+            const notesPagination = document.getElementById('notes-pagination');
+            
             if (ws.notes && ws.notes.length > 0) {{
                 notesSection.style.display = 'block';
-                notesContainer.innerHTML = ws.notes.map(n => `<div class="panel-note">${{n}}</div>`).join('');
+                notesCount.textContent = `(${{ws.notes.length}})`;
+                
+                // Parse and categorize notes
+                const parsedNotes = ws.notes.map(n => {{
+                    const categoryMatch = n.match(/\\[(DECISION|BLOCKER|CHANGED|CONTEXT|TRIED|RESUME)\\]/i);
+                    const timestampMatch = n.match(/^\\[(\\d{{4}}-\\d{{2}}-\\d{{2}} \\d{{2}}:\\d{{2}})\\]/);
+                    let category = categoryMatch ? categoryMatch[1].toLowerCase() : null;
+                    let timestamp = timestampMatch ? timestampMatch[1] : null;
+                    let content = n;
+                    if (timestampMatch) content = content.replace(timestampMatch[0], '').trim();
+                    if (categoryMatch) content = content.replace(`[${{categoryMatch[1]}}]`, '').trim();
+                    return {{ category, timestamp, content, raw: n }};
+                }}).reverse(); // Most recent first
+                
+                // Store for pagination
+                window.currentNotes = parsedNotes;
+                window.notesPerPage = 3;
+                window.currentNotesPage = 0;
+                
+                // Show summary of most recent key note
+                const keyNote = parsedNotes.find(n => n.category);
+                if (keyNote) {{
+                    const categoryColors = {{
+                        decision: '#3fb950', blocker: '#f85149', changed: '#a371f7',
+                        context: '#58a6ff', tried: '#f0883e', resume: '#d29922'
+                    }};
+                    const preview = keyNote.content.length > 80 ? keyNote.content.slice(0, 80) + '...' : keyNote.content;
+                    notesSummary.innerHTML = `<span style="color:${{categoryColors[keyNote.category] || '#8b949e'}}">${{keyNote.category.toUpperCase()}}:</span> ${{preview}}`;
+                }} else {{
+                    const preview = parsedNotes[0].content.length > 80 ? parsedNotes[0].content.slice(0, 80) + '...' : parsedNotes[0].content;
+                    notesSummary.textContent = preview;
+                }}
+                
+                // Reset collapsed state
+                document.getElementById('notes-container').classList.remove('expanded');
+                document.getElementById('toggle-icon').textContent = '▶';
+                document.getElementById('toggle-text').textContent = 'Show';
+                
+                renderNotesPage(0);
             }} else {{
                 notesSection.style.display = 'none';
             }}
@@ -1025,6 +1279,60 @@ def get_dashboard_html(current_profile: str) -> str:
             linkGroup.selectAll('line').classed('highlighted', false).classed('dimmed', false);
             
             selectedNode = null;
+        }}
+        
+        function toggleNotes() {{
+            const container = document.getElementById('notes-container');
+            const icon = document.getElementById('toggle-icon');
+            const text = document.getElementById('toggle-text');
+            const isExpanded = container.classList.contains('expanded');
+            
+            if (isExpanded) {{
+                container.classList.remove('expanded');
+                icon.textContent = '▶';
+                text.textContent = 'Show';
+            }} else {{
+                container.classList.add('expanded');
+                icon.textContent = '▼';
+                text.textContent = 'Hide';
+            }}
+        }}
+        
+        function renderNotesPage(page) {{
+            const notes = window.currentNotes || [];
+            const perPage = window.notesPerPage || 3;
+            const totalPages = Math.ceil(notes.length / perPage);
+            window.currentNotesPage = page;
+            
+            const start = page * perPage;
+            const end = Math.min(start + perPage, notes.length);
+            const pageNotes = notes.slice(start, end);
+            
+            const notesContainer = document.getElementById('panel-notes');
+            notesContainer.innerHTML = pageNotes.map(n => {{
+                const categoryClass = n.category ? `note-${{n.category}}` : '';
+                const categoryBadge = n.category ? `<div class="note-category">${{n.category}}</div>` : '';
+                const timestamp = n.timestamp ? `<div class="note-timestamp">${{n.timestamp}}</div>` : '';
+                return `<div class="panel-note ${{categoryClass}}">
+                    ${{categoryBadge}}
+                    ${{timestamp}}
+                    <div class="note-content">${{n.content}}</div>
+                </div>`;
+            }}).join('');
+            
+            // Render pagination
+            const pagination = document.getElementById('notes-pagination');
+            if (totalPages > 1) {{
+                let paginationHtml = `
+                    <button class="notes-page-btn" onclick="renderNotesPage(${{page - 1}})" ${{page === 0 ? 'disabled' : ''}}>← Prev</button>
+                    <span style="color:#6e7681;font-size:0.75rem;padding:0.4rem">${{page + 1}} / ${{totalPages}}</span>
+                    <button class="notes-page-btn" onclick="renderNotesPage(${{page + 1}})" ${{page >= totalPages - 1 ? 'disabled' : ''}}>Next →</button>
+                `;
+                pagination.innerHTML = paginationHtml;
+                pagination.style.display = 'flex';
+            }} else {{
+                pagination.style.display = 'none';
+            }}
         }}
         
         // Handle resize
@@ -1194,17 +1502,90 @@ async def get_workstream(
 def main():
     """Run the web UI server."""
     import argparse
+    import signal
+    import socket
+    import sys
+
     import uvicorn
 
     parser = argparse.ArgumentParser(description="Workstream Dashboard")
     parser.add_argument(
         "--port", type=int, default=8080, help="Port to run on (default: 8080)"
     )
+    parser.add_argument(
+        "--force", "-f", action="store_true", help="Kill existing process on port if needed"
+    )
     args = parser.parse_args()
+
+    def is_port_in_use(port: int) -> bool:
+        """Check if a port is already in use."""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            return s.connect_ex(("127.0.0.1", port)) == 0
+
+    def kill_process_on_port(port: int) -> bool:
+        """Kill process using the given port. Returns True if successful."""
+        import subprocess
+        try:
+            # Find PID using the port
+            result = subprocess.run(
+                ["lsof", "-ti", f":{port}"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    if pid:
+                        subprocess.run(["kill", "-9", pid], timeout=5)
+                        print(f"Killed existing process {pid} on port {port}")
+                return True
+        except Exception as e:
+            print(f"Warning: Could not kill process on port {port}: {e}")
+        return False
+
+    # Check if port is in use
+    if is_port_in_use(args.port):
+        if args.force:
+            print(f"Port {args.port} in use, killing existing process...")
+            kill_process_on_port(args.port)
+            # Brief wait for port to be released
+            import time
+            time.sleep(0.5)
+        else:
+            print(f"Error: Port {args.port} is already in use.")
+            print(f"  - Run with --force to kill the existing process")
+            print(f"  - Or use --port <number> to use a different port")
+            sys.exit(1)
 
     print(f"Starting Workstream Dashboard at http://localhost:{args.port}")
     print(f"Available profiles: {', '.join(PROFILES)}")
-    uvicorn.run(app, host="0.0.0.0", port=args.port)
+    print("Press Ctrl+C to stop")
+
+    # Configure uvicorn for clean shutdown
+    config = uvicorn.Config(
+        app,
+        host="0.0.0.0",
+        port=args.port,
+        log_level="warning",  # Reduce noise
+        timeout_graceful_shutdown=2,  # Quick shutdown
+    )
+    server = uvicorn.Server(config)
+
+    # Handle signals for clean shutdown
+    def signal_handler(signum, frame):
+        print("\nShutting down...")
+        server.should_exit = True
+
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    try:
+        server.run()
+    except Exception as e:
+        print(f"Server error: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
