@@ -35,8 +35,21 @@ else
     echo "2. Using existing branch $BRANCH_NAME"
 fi
 
-# 4. Commit changes
-echo "3. Committing changes..."
+# 4. Fetch and merge main to handle conflicts before pushing
+echo "3. Syncing with main branch..."
+git fetch origin main
+if ! git merge origin/main -m "Merge main into $BRANCH_NAME"; then
+    echo ""
+    echo "ERROR: Merge conflicts detected!"
+    echo "Please resolve conflicts manually, then run:"
+    echo "  git add -A && git commit -m 'Resolve merge conflicts'"
+    echo "  ./scripts/close-bead.sh $BEAD_ID \"$DESCRIPTION\""
+    exit 1
+fi
+echo "   Merged main successfully"
+
+# 5. Commit changes
+echo "4. Committing changes..."
 git add -A
 git commit -m "$BEAD_TITLE
 
@@ -44,12 +57,12 @@ $DESCRIPTION
 
 Closes: $BEAD_ID" || echo "   (no changes to commit)"
 
-# 5. Push branch
-echo "4. Pushing branch..."
+# 6. Push branch
+echo "5. Pushing branch..."
 git push -u origin "$BRANCH_NAME"
 
-# 6. Create PR
-echo "5. Creating PR..."
+# 7. Create PR
+echo "6. Creating PR..."
 gh pr create \
     --title "$BEAD_TITLE" \
     --body "## Summary
@@ -61,16 +74,17 @@ $DESCRIPTION
 
 ## Testing
 - [x] Docker tests passed (\`./scripts/test-docker.sh\`)
+- [x] Merged with main (no conflicts)
 " \
     --head "$BRANCH_NAME" \
     2>&1 || echo "   PR may already exist"
 
-# 7. Close bead
-echo "6. Closing bead..."
+# 8. Close bead
+echo "7. Closing bead..."
 bd close "$BEAD_ID" -r "$DESCRIPTION"
 
-# 8. Return to main
-echo "7. Returning to main branch..."
+# 9. Return to main
+echo "8. Returning to main branch..."
 git checkout main
 git pull origin main
 
