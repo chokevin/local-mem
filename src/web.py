@@ -6,14 +6,89 @@ from __future__ import annotations
 
 import asyncio
 import os
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, AsyncGenerator, Optional
+from typing import Any, Optional
 
-from fastapi import Body, Cookie, FastAPI, Query, Request, Response
+from fastapi import Body, Cookie, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .storage import DEFAULT_PROFILE, WorkstreamStorage
+from .types import CreateWorkstreamRequest, UpdateWorkstreamRequest
+
+
+# Pydantic models for REST API request/response validation
+class WorkstreamMetadataModel(BaseModel):
+    """Pydantic model for workstream metadata."""
+
+    host_ips: list[str] = Field(default_factory=list, alias="hostIps")
+    connection_info: str | None = Field(default=None, alias="connectionInfo")
+    testing_info: str | None = Field(default=None, alias="testingInfo")
+
+    model_config = {"extra": "allow", "populate_by_name": True}
+
+
+class WorkstreamResponse(BaseModel):
+    """Pydantic model for workstream response."""
+
+    id: str
+    name: str
+    summary: str
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    notes: list[str] = Field(default_factory=list)
+    parent_id: str | None = Field(default=None, alias="parentId")
+    created_at: str = Field(alias="createdAt")
+    updated_at: str = Field(alias="updatedAt")
+
+    model_config = {"populate_by_name": True}
+
+
+class CreateWorkstreamModel(BaseModel):
+    """Pydantic model for creating a workstream."""
+
+    name: str = Field(..., min_length=1, description="Name of the workstream")
+    summary: str = Field(..., description="Summary/description of the workstream")
+    tags: list[str] = Field(default_factory=list, description="Tags for categorization")
+    metadata: dict[str, Any] | None = Field(default=None, description="Additional metadata")
+    parent_id: str | None = Field(default=None, alias="parentId", description="Parent workstream ID")
+
+    model_config = {"populate_by_name": True}
+
+
+class UpdateWorkstreamModel(BaseModel):
+    """Pydantic model for updating a workstream."""
+
+    name: str | None = Field(default=None, min_length=1, description="New name")
+    summary: str | None = Field(default=None, description="New summary")
+    tags: list[str] | None = Field(default=None, description="New tags")
+    metadata: dict[str, Any] | None = Field(default=None, description="New metadata")
+    parent_id: str | None = Field(default=None, alias="parentId", description="New parent ID")
+
+    model_config = {"populate_by_name": True}
+
+
+class AddNoteModel(BaseModel):
+    """Pydantic model for adding a note."""
+
+    note: str = Field(..., min_length=1, description="Note content")
+    category: str | None = Field(
+        default=None,
+        description="Note category (decision, blocker, changed, context, tried, resume, other)",
+    )
+
+
+class SearchModel(BaseModel):
+    """Pydantic model for search requests."""
+
+    query: str | None = Field(default=None, description="Text search query")
+    tags: list[str] | None = Field(default=None, description="Tags to search for")
+    match_all: bool = Field(
+        default=False, alias="matchAll", description="Match all tags (AND) vs any (OR)"
+    )
+
+    model_config = {"populate_by_name": True}
 
 # Cookie name for profile persistence
 PROFILE_COOKIE = "workstream_profile"
@@ -1376,18 +1451,18 @@ def get_dashboard_html(current_profile: str) -> str:
 
 def render_workstreams(workstreams: list) -> str:
     """Render workstreams as JSON data for the 3D graph."""
-    import json
     import html
-    
+    import json
+
     if not workstreams:
         return '<div data-workstreams="[]"></div>'
-    
+
     # Convert workstreams to JSON-serializable format
     ws_data = [ws.to_dict() for ws in workstreams]
     json_str = json.dumps(ws_data)
     # Escape for HTML attribute
     escaped = html.escape(json_str)
-    
+
     return f'<div data-workstreams="{escaped}"></div>'
 
 
@@ -1485,7 +1560,7 @@ async def list_workstreams(profile: str = Query(default=DEFAULT_PROFILE)):
     return [ws.to_dict() for ws in workstreams]
 
 
-@app.get("/api/workstreams/{workstream_id}")
+@app.get("/api/workstreams/{workstream_id}", response_model=WorkstreamResponse)
 async def get_workstream(
     workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
 ):
@@ -1497,7 +1572,151 @@ async def get_workstream(
     ws = await storage.get(workstream_id)
     if ws:
         return ws.to_dict()
-    return {"error": "Not found"}, 404
+    raise HTTPException(status_code=404, detail="Workstream not found")
+
+
+@app.post("/api/workstreams", response_model=WorkstreamResponse, status_code=201)
+async def create_workstream(
+    data: CreateWorkstreamModel, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Create a new workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    # Validate parent exists if provided
+    if data.parent_id:
+        parent = await storage.get(data.parent_id)
+        if not parent:
+            raise HTTPException(status_code=400, detail="Parent workstream not found")
+
+    request = CreateWorkstreamRequest(
+        name=data.name,
+        summary=data.summary,
+        tags=data.tags,
+        metadata=data.metadata,
+        parent_id=data.parent_id,
+    )
+    ws = await storage.create(request)
+    return ws.to_dict()
+
+
+@app.put("/api/workstreams/{workstream_id}", response_model=WorkstreamResponse)
+async def update_workstream(
+    workstream_id: str,
+    data: UpdateWorkstreamModel,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Update an existing workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    # Validate workstream exists
+    existing = await storage.get(workstream_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+
+    # Validate parent exists if provided
+    if data.parent_id:
+        parent = await storage.get(data.parent_id)
+        if not parent:
+            raise HTTPException(status_code=400, detail="Parent workstream not found")
+
+    request = UpdateWorkstreamRequest(
+        id=workstream_id,
+        name=data.name,
+        summary=data.summary,
+        tags=data.tags,
+        metadata=data.metadata,
+        parent_id=data.parent_id,
+    )
+    ws = await storage.update(request)
+    return ws.to_dict()
+
+
+@app.delete("/api/workstreams/{workstream_id}")
+async def delete_workstream(
+    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Delete a workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    success = await storage.delete(workstream_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+    return {"message": "Workstream deleted successfully"}
+
+
+@app.post("/api/workstreams/{workstream_id}/notes", response_model=WorkstreamResponse)
+async def add_note(
+    workstream_id: str,
+    data: AddNoteModel,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Add a note to a workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    ws = await storage.add_note(workstream_id, data.note, data.category)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+    return ws.to_dict()
+
+
+@app.get("/api/workstreams/{workstream_id}/children")
+async def get_children(
+    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Get all direct children of a workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    # Validate parent exists
+    parent = await storage.get(workstream_id)
+    if not parent:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+
+    children = await storage.get_children(workstream_id)
+    return [ws.to_dict() for ws in children]
+
+
+@app.post("/api/workstreams/search")
+async def search_workstreams(
+    data: SearchModel, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Search workstreams by query text or tags."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    results = []
+
+    # Search by text query
+    if data.query:
+        text_results = await storage.search(data.query)
+        results.extend(text_results)
+
+    # Search by tags
+    if data.tags:
+        tag_results = await storage.search_by_tags(data.tags, data.match_all)
+        # Merge results (avoid duplicates)
+        existing_ids = {ws.id for ws in results}
+        for ws in tag_results:
+            if ws.id not in existing_ids:
+                results.append(ws)
+
+    return [ws.to_dict() for ws in results]
 
 
 class SearchRequest(BaseModel):
@@ -1621,8 +1840,8 @@ def main():
             time.sleep(0.5)
         else:
             print(f"Error: Port {args.port} is already in use.")
-            print(f"  - Run with --force to kill the existing process")
-            print(f"  - Or use --port <number> to use a different port")
+            print("  - Run with --force to kill the existing process")
+            print("  - Or use --port <number> to use a different port")
             sys.exit(1)
 
     print(f"Starting Workstream Dashboard at http://localhost:{args.port}")
