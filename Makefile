@@ -1,4 +1,4 @@
-.PHONY: install dev test test-cov lint format typecheck clean run cli help setup docker-build docker-up docker-down docker-logs docker-clean
+.PHONY: install dev test test-cov test-e2e lint format typecheck clean run cli help setup docker-build docker-up docker-down docker-logs docker-clean
 
 # Default target
 help:
@@ -17,6 +17,7 @@ help:
 	@echo "  make test        Run all tests"
 	@echo "  make test-cov    Run tests with coverage report"
 	@echo "  make test-v      Run tests with verbose output"
+	@echo "  make test-e2e    Run Playwright E2E tests"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint        Run linter (ruff)"
@@ -63,6 +64,12 @@ test-cov:
 
 test-v:
 	uv run pytest -v
+
+test-e2e:
+	@echo "Installing Playwright browsers if needed..."
+	uv run playwright install chromium --with-deps 2>/dev/null || uv run playwright install chromium
+	@echo "Running E2E tests..."
+	uv run pytest tests/e2e/ -v
 
 # Code quality
 lint:
