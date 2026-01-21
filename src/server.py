@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
+from pathlib import Path
 from typing import Any
 
 from mcp.server import Server
@@ -20,6 +22,7 @@ from mcp.types import (
 )
 
 from .indexers import GitHubIndexer
+from .indexers.local_repo_indexer import LocalRepoIndexer
 from .storage import DEFAULT_PROFILE, WorkstreamStorage
 from .templates import (
     CreateTemplateRequest,
@@ -37,6 +40,183 @@ PROFILE = os.environ.get("MEM_PROFILE", DEFAULT_PROFILE)
 server = Server("local-mem")
 storage = WorkstreamStorage(profile=PROFILE)
 template_storage = TemplateStorage(profile=PROFILE)
+
+
+def extract_project_context(path: Path) -> dict[str, Any]:
+    """Extract project context (build/test commands, setup instructions) from a directory.
+    
+    Handles both single projects and monorepos with multiple services.
+    """
+    context: dict[str, Any] = {
+        "project_type": "unknown",
+        "is_monorepo": False,
+        "commands": {},
+        "setup": [],
+        "services": {},  # For monorepos: service_name -> {path, commands, type}
+    }
+    
+    makefile = path / "Makefile"
+    package_json = path / "package.json"
+    pyproject = path / "pyproject.toml"
+    cargo_toml = path / "Cargo.toml"
+    go_mod = path / "go.mod"
+    
+    # Check for monorepo patterns
+    services_dir = path / "services"
+    packages_dir = path / "packages"
+    
+    # Find all nested project files (indicates monorepo)
+    nested_go_mods = list(path.glob("*/go.mod")) + list(path.glob("*/*/go.mod"))
+    nested_package_jsons = [p for p in path.glob("*/package.json") if "node_modules" not in str(p)]
+    nested_cargo_tomls = list(path.glob("*/Cargo.toml"))
+    
+    is_monorepo = (
+        services_dir.exists() or 
+        packages_dir.exists() or 
+        len(nested_go_mods) > 1 or 
+        len(nested_package_jsons) > 1
+    )
+    context["is_monorepo"] = is_monorepo
+    
+    # Extract root-level commands from Makefile
+    if makefile.exists():
+        context["project_type"] = "make"
+        try:
+            content = makefile.read_text()
+            targets = re.findall(r'^([a-zA-Z_-]+):', content, re.MULTILINE)
+            
+            # Standard commands
+            common = {"build": None, "test": None, "lint": None, "install": None,
+                      "setup": None, "dev": None, "run": None, "clean": None,
+                      "check": None, "fmt": None, "format": None}
+            
+            # Language-specific commands (for monorepos)
+            lang_commands = {
+                "go": {"test": None, "lint": None, "check": None, "fmt": None},
+                "python": {"test": None, "lint": None, "check": None},
+                "rust": {"test": None, "lint": None, "check": None},
+            }
+            
+            for t in targets:
+                tl = t.lower()
+                # Root commands
+                if tl in common:
+                    common[tl] = f"make {t}"
+                elif "test" in tl and "-" not in tl:
+                    common["test"] = common["test"] or f"make {t}"
+                elif "build" in tl and "-" not in tl:
+                    common["build"] = common["build"] or f"make {t}"
+                elif "lint" in tl and "-" not in tl:
+                    common["lint"] = common["lint"] or f"make {t}"
+                
+                # Language-specific (e.g., test-go, lint-python)
+                for lang in lang_commands:
+                    if tl == f"test-{lang}" or tl == f"test_{lang}":
+                        lang_commands[lang]["test"] = f"make {t}"
+                    elif tl == f"lint-{lang}" or tl == f"lint_{lang}":
+                        lang_commands[lang]["lint"] = f"make {t}"
+                    elif tl == f"check-{lang}" or tl == f"check_{lang}":
+                        lang_commands[lang]["check"] = f"make {t}"
+                    elif tl == f"fmt-{lang}" or tl == f"fmt_{lang}":
+                        lang_commands[lang]["fmt"] = f"make {t}"
+            
+            context["commands"] = {k: v for k, v in common.items() if v}
+            
+            # Add language-specific commands if this is a monorepo
+            if is_monorepo:
+                context["commands"]["by_language"] = {
+                    lang: {k: v for k, v in cmds.items() if v}
+                    for lang, cmds in lang_commands.items()
+                    if any(cmds.values())
+                }
+            
+            # Setup commands
+            if "install-tools" in targets:
+                context["setup"].append("make install-tools")
+            if "setup" in targets:
+                context["setup"].append("make setup")
+                
+        except Exception:
+            pass
+    
+    # Index services in monorepo
+    if is_monorepo and services_dir.exists():
+        for svc_path in services_dir.iterdir():
+            if svc_path.is_dir() and not svc_path.name.startswith("."):
+                svc_info = {"path": str(svc_path.relative_to(path)), "type": "unknown", "commands": {}}
+                
+                # Detect service type
+                if (svc_path / "go.mod").exists():
+                    svc_info["type"] = "go"
+                    svc_info["commands"] = {
+                        "build": f"cd {svc_info['path']} && go build ./...",
+                        "test": f"cd {svc_info['path']} && go test ./...",
+                    }
+                elif (svc_path / "Cargo.toml").exists():
+                    svc_info["type"] = "rust"
+                    svc_info["commands"] = {
+                        "build": f"cd {svc_info['path']} && cargo build",
+                        "test": f"cd {svc_info['path']} && cargo test",
+                    }
+                elif (svc_path / "package.json").exists():
+                    svc_info["type"] = "node"
+                    svc_info["commands"] = {
+                        "build": f"cd {svc_info['path']} && npm run build",
+                        "test": f"cd {svc_info['path']} && npm test",
+                    }
+                elif (svc_path / "pyproject.toml").exists():
+                    svc_info["type"] = "python"
+                    svc_info["commands"] = {
+                        "test": f"cd {svc_info['path']} && pytest",
+                    }
+                
+                # Check for service-specific README
+                if (svc_path / "README.md").exists():
+                    svc_info["has_readme"] = True
+                
+                context["services"][svc_path.name] = svc_info
+    
+    # Fallback for non-monorepo projects
+    if not is_monorepo:
+        if package_json.exists():
+            context["project_type"] = "node" if context["project_type"] == "unknown" else context["project_type"]
+            try:
+                pkg = json.loads(package_json.read_text())
+                scripts = pkg.get("scripts", {})
+                if "build" in scripts:
+                    context["commands"]["build"] = "npm run build"
+                if "test" in scripts:
+                    context["commands"]["test"] = "npm run test"
+                if "lint" in scripts:
+                    context["commands"]["lint"] = "npm run lint"
+                context["setup"].append("npm install")
+            except Exception:
+                pass
+        
+        if pyproject.exists():
+            context["project_type"] = "python" if context["project_type"] == "unknown" else context["project_type"]
+            context["commands"].setdefault("test", "pytest")
+            context["commands"].setdefault("lint", "ruff check .")
+            if (path / "uv.lock").exists():
+                context["setup"].append("uv sync")
+            elif (path / "requirements.txt").exists():
+                context["setup"].append("pip install -r requirements.txt")
+            else:
+                context["setup"].append("pip install -e .")
+        
+        if cargo_toml.exists():
+            context["project_type"] = "rust" if context["project_type"] == "unknown" else context["project_type"]
+            context["commands"]["build"] = "cargo build"
+            context["commands"]["test"] = "cargo test"
+            context["commands"]["lint"] = "cargo clippy"
+        
+        if go_mod.exists():
+            context["project_type"] = "go" if context["project_type"] == "unknown" else context["project_type"]
+            context["commands"]["build"] = "go build ./..."
+            context["commands"]["test"] = "go test ./..."
+            context["commands"]["lint"] = "golangci-lint run"
+    
+    return context
 
 
 def get_tools() -> list[Tool]:
@@ -460,6 +640,43 @@ Set these environment variables:
                     },
                 },
                 "required": ["template_id", "name", "summary"],
+            },
+        ),
+        Tool(
+            name="get_project_context",
+            description="""Get project context for a directory path. Returns build commands, test commands, 
+setup instructions, and service information for monorepos. Automatically detects project type.
+
+Use this when starting work on a project to understand how to build, test, and work with it.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the project directory. Defaults to current working directory.",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="index_local_repo",
+            description="""Index a local git repository and create a workstream with project context.
+Extracts README, docs, Makefile targets, build/test commands, and git history.
+Handles monorepos by detecting services and their individual build/test commands.""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the local git repository",
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Additional tags to add to the workstream",
+                    },
+                },
+                "required": ["path"],
             },
         ),
     ]
@@ -905,6 +1122,106 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
                     type="text", text=json.dumps(workstream.to_dict(), indent=2)
                 )
             ]
+
+        elif name == "get_project_context":
+            path_str = arguments.get("path", os.getcwd())
+            path = Path(path_str).expanduser().resolve()
+            
+            if not path.exists():
+                return [TextContent(type="text", text=f"Path does not exist: {path}")]
+            
+            context = extract_project_context(path)
+            
+            # Check if we have an indexed workstream for this path
+            workstreams = await storage.list()
+            matching_ws = None
+            for ws in workstreams:
+                ws_meta = ws.metadata
+                ws_path = ""
+                if hasattr(ws_meta, 'extra') and ws_meta.extra:
+                    ws_path = ws_meta.extra.get("repo_path", "")
+                elif hasattr(ws_meta, '__dict__'):
+                    ws_path = getattr(ws_meta, 'repo_path', "") or ws_meta.__dict__.get("repo_path", "")
+                if ws_path and Path(ws_path).resolve() == path:
+                    matching_ws = ws
+                    break
+            
+            result = {
+                "path": str(path),
+                "is_monorepo": context.get("is_monorepo", False),
+                "project_type": context.get("project_type", "unknown"),
+                "commands": context.get("commands", {}),
+                "setup_instructions": context.get("setup", []),
+                "services": context.get("services", {}),
+                "indexed_workstream_id": matching_ws.id if matching_ws else None,
+            }
+            
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+        elif name == "index_local_repo":
+            path_str = arguments.get("path")
+            additional_tags = arguments.get("tags", [])
+            
+            if not path_str:
+                return [TextContent(type="text", text="Path is required")]
+            
+            path = Path(path_str).expanduser().resolve()
+            
+            try:
+                indexer = LocalRepoIndexer(str(path))
+                ws_request, notes = await indexer.index_repository()
+                
+                # Add additional tags
+                ws_request.tags = list(set(ws_request.tags + additional_tags))
+                
+                # Extract and add project context to metadata
+                context = extract_project_context(path)
+                ws_request.metadata["is_monorepo"] = context.get("is_monorepo", False)
+                ws_request.metadata["commands"] = context.get("commands", {})
+                ws_request.metadata["setup_instructions"] = context.get("setup", [])
+                ws_request.metadata["project_type"] = context.get("project_type", "unknown")
+                if context.get("services"):
+                    ws_request.metadata["services"] = context["services"]
+                
+                # Create workstream
+                workstream = await storage.create(ws_request)
+                
+                # Add notes
+                for note in notes:
+                    await storage.add_note(
+                        workstream.id,
+                        note["content"],
+                        note.get("category", "CONTEXT"),
+                    )
+                
+                # Add quick reference note for monorepos
+                if context.get("is_monorepo") and context.get("services"):
+                    services_list = "\n".join([
+                        f"  - {name}: {info['type']} ({info['path']})" 
+                        for name, info in context["services"].items()
+                    ])
+                    quick_ref = f"""[QUICK REFERENCE] Monorepo Commands:
+
+ROOT: {', '.join(context.get('setup', []))}
+Test: {context['commands'].get('test', 'N/A')} | Lint: {context['commands'].get('lint', 'N/A')}
+
+SERVICES ({len(context['services'])}):
+{services_list}
+"""
+                    await storage.add_note(workstream.id, quick_ref, "REFERENCE")
+                
+                # Reload to get notes
+                workstream = await storage.get(workstream.id)
+                
+                return [
+                    TextContent(
+                        type="text",
+                        text=f"Indexed local repository: {path}\n\n"
+                        + json.dumps(workstream.to_dict(), indent=2),
+                    )
+                ]
+            except Exception as e:
+                return [TextContent(type="text", text=f"Failed to index repository: {e}")]
 
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
