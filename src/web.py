@@ -8,10 +8,10 @@ import asyncio
 import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import Body, Cookie, FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .storage import DEFAULT_PROFILE, WorkstreamStorage
@@ -19,7 +19,6 @@ from .templates import (
     CreateTemplateRequest,
     InstantiateTemplateRequest,
     TemplateStorage,
-    WorkstreamTemplate,
 )
 from .types import CreateWorkstreamRequest, UpdateWorkstreamRequest
 
@@ -61,7 +60,9 @@ class CreateWorkstreamModel(BaseModel):
     summary: str = Field(..., description="Summary/description of the workstream")
     tags: list[str] = Field(default_factory=list, description="Tags for categorization")
     metadata: dict[str, Any] | None = Field(default=None, description="Additional metadata")
-    parent_id: str | None = Field(default=None, alias="parentId", description="Parent workstream ID")
+    parent_id: str | None = Field(
+        default=None, alias="parentId", description="Parent workstream ID"
+    )
 
     model_config = {"populate_by_name": True}
 
@@ -155,7 +156,9 @@ class InstantiateTemplateModel(BaseModel):
     metadata_overrides: dict[str, Any] = Field(
         default_factory=dict, alias="metadataOverrides", description="Metadata overrides"
     )
-    parent_id: str | None = Field(default=None, alias="parentId", description="Parent workstream ID")
+    parent_id: str | None = Field(
+        default=None, alias="parentId", description="Parent workstream ID"
+    )
 
     model_config = {"populate_by_name": True}
 
@@ -2043,9 +2046,7 @@ async def dashboard(
     if profile is not None:
         selected_profile = profile if profile in PROFILES else DEFAULT_PROFILE
     elif workstream_profile is not None:
-        selected_profile = (
-            workstream_profile if workstream_profile in PROFILES else DEFAULT_PROFILE
-        )
+        selected_profile = workstream_profile if workstream_profile in PROFILES else DEFAULT_PROFILE
     else:
         selected_profile = DEFAULT_PROFILE
 
@@ -2085,9 +2086,7 @@ async def events(request: Request, profile: str = Query(default=DEFAULT_PROFILE)
 
             # Send on first connect (last_mod=0) or when file changes
             if current_modified != last_mod or last_mod == 0.0:
-                last_mod = (
-                    current_modified if current_modified > 0 else -1.0
-                )  # Mark as sent
+                last_mod = current_modified if current_modified > 0 else -1.0  # Mark as sent
                 await storage._load()  # Reload data
                 workstreams = await storage.list()
                 html = render_workstreams(workstreams)
@@ -2119,9 +2118,7 @@ async def list_workstreams(profile: str = Query(default=DEFAULT_PROFILE)):
 
 
 @app.get("/api/workstreams/{workstream_id}", response_model=WorkstreamResponse)
-async def get_workstream(
-    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
-):
+async def get_workstream(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
     """API endpoint to get a specific workstream."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -2196,9 +2193,7 @@ async def update_workstream(
 
 
 @app.delete("/api/workstreams/{workstream_id}")
-async def delete_workstream(
-    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
-):
+async def delete_workstream(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
     """Delete a workstream."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -2230,9 +2225,7 @@ async def add_note(
 
 
 @app.get("/api/workstreams/{workstream_id}/notes")
-async def get_notes(
-    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
-):
+async def get_notes(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
     """Get all notes for a workstream."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -2264,7 +2257,9 @@ async def update_note(
     return ws.to_dict()
 
 
-@app.delete("/api/workstreams/{workstream_id}/notes/{note_index}", response_model=WorkstreamResponse)
+@app.delete(
+    "/api/workstreams/{workstream_id}/notes/{note_index}", response_model=WorkstreamResponse
+)
 async def delete_note(
     workstream_id: str,
     note_index: int,
@@ -2283,9 +2278,7 @@ async def delete_note(
 
 
 @app.get("/api/workstreams/{workstream_id}/children")
-async def get_children(
-    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
-):
+async def get_children(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
     """Get all direct children of a workstream."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -2302,9 +2295,7 @@ async def get_children(
 
 
 @app.post("/api/workstreams/search")
-async def search_workstreams(
-    data: SearchModel, profile: str = Query(default=DEFAULT_PROFILE)
-):
+async def search_workstreams(data: SearchModel, profile: str = Query(default=DEFAULT_PROFILE)):
     """Search workstreams by query text or tags."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -2346,9 +2337,7 @@ async def list_templates(profile: str = Query(default=DEFAULT_PROFILE)):
 
 
 @app.post("/api/templates", response_model=TemplateResponse, status_code=201)
-async def create_template(
-    data: CreateTemplateModel, profile: str = Query(default=DEFAULT_PROFILE)
-):
+async def create_template(data: CreateTemplateModel, profile: str = Query(default=DEFAULT_PROFILE)):
     """Create a new template."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -2394,7 +2383,9 @@ async def delete_template(template_id: str, profile: str = Query(default=DEFAULT
     return {"message": f"Template {template_id} deleted"}
 
 
-@app.post("/api/templates/{template_id}/instantiate", response_model=WorkstreamResponse, status_code=201)
+@app.post(
+    "/api/templates/{template_id}/instantiate", response_model=WorkstreamResponse, status_code=201
+)
 async def instantiate_template(
     template_id: str,
     data: InstantiateTemplateModel,
@@ -2425,24 +2416,27 @@ async def instantiate_template(
 
 class SearchRequest(BaseModel):
     """Request body for search endpoint."""
+
     q: str
     limit: int = 20
-    fields: Optional[list[str]] = None
+    fields: list[str] | None = None
 
 
 class SearchResult(BaseModel):
     """A single search result."""
+
     id: str
     name: str
     summary: str
     tags: list[str]
-    parent_id: Optional[str]
+    parent_id: str | None
     score: float
     highlights: dict[str, str]
 
 
 class SearchResponse(BaseModel):
     """Response from search endpoint."""
+
     query: str
     total: int
     results: list[SearchResult]
@@ -2457,7 +2451,7 @@ async def search_workstreams(
     Full-text search across workstreams.
 
     Supports AND/OR operators, phrase search, and field-specific queries.
-    
+
     Examples:
     - Simple: {"q": "api deployment"}
     - AND: {"q": "api AND deployment"}
@@ -2487,9 +2481,7 @@ async def search_workstreams(
 
 # Relationship endpoints
 @app.get("/api/workstreams/{workstream_id}/relationships", response_model=RelationshipsResponse)
-async def get_relationships(
-    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
-):
+async def get_relationships(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
     """Get all relationships for a workstream."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -2563,9 +2555,7 @@ async def remove_relationship(
 
 
 @app.get("/api/workstreams/{workstream_id}/dependents")
-async def get_dependents(
-    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
-):
+async def get_dependents(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
     """Get all workstreams that depend on this one."""
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -2589,10 +2579,11 @@ DEV_DIRECTORY = Path(os.environ.get("MEM_DEV_DIR", os.path.expanduser("~/dev")))
 
 class RepoInfo(BaseModel):
     """Information about a local repository."""
+
     name: str
     path: str
     indexed: bool = False
-    workstream_id: Optional[str] = None
+    workstream_id: str | None = None
 
 
 @app.get("/api/repos")
@@ -2602,12 +2593,12 @@ async def list_repos(profile: str = Query(default=DEFAULT_PROFILE)) -> list[Repo
         profile = DEFAULT_PROFILE
     storage = get_storage(profile)
     await storage._load()
-    
+
     repos = []
-    
+
     if not DEV_DIRECTORY.exists():
         return repos
-    
+
     # Get all indexed workstreams to check which repos are already indexed
     # Match by repo name since paths may differ (container vs host)
     workstreams = await storage.list()
@@ -2616,28 +2607,30 @@ async def list_repos(profile: str = Query(default=DEFAULT_PROFILE)) -> list[Repo
         # Check metadata for repo_path
         meta = ws.metadata
         repo_path = None
-        if hasattr(meta, 'extra') and meta.extra:
+        if hasattr(meta, "extra") and meta.extra:
             repo_path = meta.extra.get("repo_path")
-        elif hasattr(meta, '__dict__'):
-            repo_path = getattr(meta, 'repo_path', None) or meta.__dict__.get("repo_path")
+        elif hasattr(meta, "__dict__"):
+            repo_path = getattr(meta, "repo_path", None) or meta.__dict__.get("repo_path")
         if repo_path:
             # Extract repo name from path
             repo_name = Path(repo_path).name
             indexed_repos[repo_name] = ws.id
-    
+
     # Scan dev directory for git repos
     for item in DEV_DIRECTORY.iterdir():
         if item.is_dir() and not item.name.startswith("."):
             git_dir = item / ".git"
             if git_dir.exists():
                 resolved_path = str(item.resolve())
-                repos.append(RepoInfo(
-                    name=item.name,
-                    path=resolved_path,
-                    indexed=item.name in indexed_repos,
-                    workstream_id=indexed_repos.get(item.name),
-                ))
-    
+                repos.append(
+                    RepoInfo(
+                        name=item.name,
+                        path=resolved_path,
+                        indexed=item.name in indexed_repos,
+                        workstream_id=indexed_repos.get(item.name),
+                    )
+                )
+
     # Sort by name
     repos.sort(key=lambda r: r.name.lower())
     return repos
@@ -2652,14 +2645,14 @@ async def index_repo(
     from .indexers.local_repo_indexer import LocalRepoIndexer
     from .server import extract_project_context
     from .types import UpdateWorkstreamRequest
-    
+
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
     storage = get_storage(profile)
     await storage._load()
-    
+
     repo_path = Path(path).expanduser().resolve()
-    
+
     # Handle path mapping: if path doesn't exist, try mapping common host paths to container paths
     if not repo_path.exists():
         # Common mappings: /Users/*/dev/* -> /host-dev/*
@@ -2670,32 +2663,32 @@ async def index_repo(
             container_path = DEV_DIRECTORY / repo_name
             if container_path.exists():
                 repo_path = container_path
-    
+
     repo_path_str = str(repo_path)
-    
+
     if not repo_path.exists():
         raise HTTPException(status_code=404, detail=f"Path does not exist: {repo_path}")
-    
+
     if not (repo_path / ".git").exists():
         raise HTTPException(status_code=400, detail=f"Not a git repository: {repo_path}")
-    
+
     # Check for existing workstream with same repo_path
     existing_workstream = None
     all_workstreams = await storage.list()
     for ws in all_workstreams:
         ws_repo_path = None
-        if hasattr(ws.metadata, 'extra') and ws.metadata.extra:
+        if hasattr(ws.metadata, "extra") and ws.metadata.extra:
             ws_repo_path = ws.metadata.extra.get("repo_path")
-        elif hasattr(ws.metadata, '__dict__'):
+        elif hasattr(ws.metadata, "__dict__"):
             ws_repo_path = ws.metadata.__dict__.get("repo_path")
         if ws_repo_path == repo_path_str:
             existing_workstream = ws
             break
-    
+
     try:
         indexer = LocalRepoIndexer(str(repo_path))
         ws_request, notes = await indexer.index_repository()
-        
+
         # Extract and add project context to metadata
         context = extract_project_context(repo_path)
         ws_request.metadata["is_monorepo"] = context.get("is_monorepo", False)
@@ -2709,7 +2702,7 @@ async def index_repo(
         ws_request.metadata["deployment"] = context.get("deployment", {})
         if context.get("services"):
             ws_request.metadata["services"] = context["services"]
-        
+
         # Create or update workstream
         if existing_workstream:
             # Update existing workstream
@@ -2724,7 +2717,7 @@ async def index_repo(
         else:
             # Create new workstream
             workstream = await storage.create(ws_request)
-        
+
         # Add notes (only for new workstreams to avoid duplicates)
         if not existing_workstream:
             for note in notes:
@@ -2733,25 +2726,25 @@ async def index_repo(
                     note["content"],
                     note.get("category", "CONTEXT"),
                 )
-        
+
         # Create or update child workstreams for monorepo services
         if context.get("is_monorepo") and context.get("services"):
             for svc_name, svc_info in context["services"].items():
                 svc_path = repo_path / svc_info["path"]
                 svc_path_str = str(svc_path)
-                
+
                 # Check for existing service workstream
                 existing_svc = None
                 for ws in all_workstreams:
                     ws_repo_path = None
-                    if hasattr(ws.metadata, 'extra') and ws.metadata.extra:
+                    if hasattr(ws.metadata, "extra") and ws.metadata.extra:
                         ws_repo_path = ws.metadata.extra.get("repo_path")
-                    elif hasattr(ws.metadata, '__dict__'):
+                    elif hasattr(ws.metadata, "__dict__"):
                         ws_repo_path = ws.metadata.__dict__.get("repo_path")
                     if ws_repo_path == svc_path_str:
                         existing_svc = ws
                         break
-                
+
                 svc_metadata = {
                     "service_name": svc_name,
                     "service_type": svc_info["type"],
@@ -2759,7 +2752,7 @@ async def index_repo(
                     "commands": svc_info.get("commands", {}),
                     "repo_path": svc_path_str,
                 }
-                
+
                 if existing_svc:
                     # Update existing service workstream
                     svc_update = UpdateWorkstreamRequest(
@@ -2781,28 +2774,30 @@ async def index_repo(
                         metadata=svc_metadata,
                     )
                     svc_ws = await storage.create(svc_request)
-                    
+
                     # Add README note if exists (only for new services)
                     readme_file = svc_path / "README.md"
                     if readme_file.exists():
                         try:
                             readme_content = readme_file.read_text()[:3000]
-                            await storage.add_note(svc_ws.id, f"[README]\n{readme_content}", "CONTEXT")
+                            await storage.add_note(
+                                svc_ws.id, f"[README]\n{readme_content}", "CONTEXT"
+                            )
                         except Exception:
                             pass
-        
+
         # Reload to get notes
         workstream = await storage.get(workstream.id)
-        
+
         return workstream.to_dict()
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to index repository: {e}")
 
 
 @app.get("/api/repos/active")
 async def get_active_repo(
-    active_repo: Optional[str] = Cookie(default=None),
+    active_repo: str | None = Cookie(default=None),
     profile: str = Query(default=DEFAULT_PROFILE),
 ):
     """Get the currently active repository."""
@@ -2824,6 +2819,131 @@ async def set_active_repo(
     return {"active_repo": path}
 
 
+# ============== Temporal Workflow API ==============
+
+
+class WorkflowStatus(BaseModel):
+    """Status of a Temporal workflow."""
+
+    workflow_id: str
+    run_id: str | None = None
+    status: str
+    workflow_type: str | None = None
+    start_time: str | None = None
+    close_time: str | None = None
+    error: str | None = None
+
+
+@app.post("/api/workflows/index-local")
+async def start_index_local_workflow(
+    path: str = Body(..., embed=True),
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Start a Temporal workflow to index a local repository.
+
+    Returns immediately with workflow ID for status tracking.
+    """
+    import os
+
+    # Check if Temporal is available
+    temporal_address = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
+
+    try:
+        from .workflows.client import start_local_indexing
+
+        handle = await start_local_indexing(path, profile=profile)
+        return {
+            "workflow_id": handle.workflow_id,
+            "run_id": handle.run_id,
+            "status": "RUNNING",
+            "message": f"Indexing workflow started for {path}",
+        }
+    except Exception as e:
+        # Fall back to sync indexing if Temporal is not available
+        raise HTTPException(
+            status_code=503,
+            detail=f"Temporal workflow service unavailable: {e}. Use /api/repos/index for sync indexing.",
+        )
+
+
+@app.post("/api/workflows/index-github")
+async def start_index_github_workflow(
+    owner: str = Body(...),
+    repo: str = Body(...),
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Start a Temporal workflow to index a GitHub repository.
+
+    Returns immediately with workflow ID for status tracking.
+    """
+    try:
+        from .workflows.client import start_github_indexing
+
+        handle = await start_github_indexing(owner, repo, profile=profile)
+        return {
+            "workflow_id": handle.workflow_id,
+            "run_id": handle.run_id,
+            "status": "RUNNING",
+            "message": f"Indexing workflow started for {owner}/{repo}",
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Temporal workflow service unavailable: {e}")
+
+
+@app.get("/api/workflows/{workflow_id}")
+async def get_workflow_status(workflow_id: str) -> WorkflowStatus:
+    """Get the status of a workflow."""
+    try:
+        from .workflows.client import get_workflow_status as get_status
+
+        status = await get_status(workflow_id)
+        return WorkflowStatus(**status)
+    except Exception as e:
+        return WorkflowStatus(
+            workflow_id=workflow_id,
+            status="ERROR",
+            error=str(e),
+        )
+
+
+@app.get("/api/workflows/{workflow_id}/result")
+async def get_workflow_result_endpoint(workflow_id: str):
+    """Get the result of a completed workflow."""
+    try:
+        from .workflows.client import get_workflow_result
+
+        result = await get_workflow_result(workflow_id)
+        return {
+            "success": result.success,
+            "workstream_id": result.workstream_id,
+            "workstream_name": result.workstream_name,
+            "notes_added": result.notes_added,
+            "services_indexed": result.services_indexed,
+            "error": result.error,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/workflows")
+async def list_workflows_endpoint(
+    workflow_type: str | None = Query(default=None),
+    limit: int = Query(default=20, le=100),
+):
+    """List recent workflows."""
+    try:
+        from .workflows.client import list_workflows
+
+        query = ""
+        if workflow_type:
+            query = f'WorkflowType="{workflow_type}"'
+
+        workflows = await list_workflows(query=query)
+        return {"workflows": workflows[:limit]}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Temporal service unavailable: {e}")
+
+
 def main():
     """Run the web UI server."""
     import argparse
@@ -2834,9 +2954,7 @@ def main():
     import uvicorn
 
     parser = argparse.ArgumentParser(description="Workstream Dashboard")
-    parser.add_argument(
-        "--port", type=int, default=8080, help="Port to run on (default: 8080)"
-    )
+    parser.add_argument("--port", type=int, default=8080, help="Port to run on (default: 8080)")
     parser.add_argument(
         "--host", type=str, default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)"
     )
@@ -2854,16 +2972,14 @@ def main():
     def kill_process_on_port(port: int) -> bool:
         """Kill process using the given port. Returns True if successful."""
         import subprocess
+
         try:
             # Find PID using the port
             result = subprocess.run(
-                ["lsof", "-ti", f":{port}"],
-                capture_output=True,
-                text=True,
-                timeout=5
+                ["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0 and result.stdout.strip():
-                pids = result.stdout.strip().split('\n')
+                pids = result.stdout.strip().split("\n")
                 for pid in pids:
                     if pid:
                         subprocess.run(["kill", "-9", pid], timeout=5)
@@ -2880,6 +2996,7 @@ def main():
             kill_process_on_port(args.port)
             # Brief wait for port to be released
             import time
+
             time.sleep(0.5)
         else:
             print(f"Error: Port {args.port} is already in use.")

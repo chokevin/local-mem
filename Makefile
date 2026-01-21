@@ -1,4 +1,4 @@
-.PHONY: install dev test test-cov test-e2e lint format typecheck clean run cli help setup docker-build docker-up docker-down docker-logs docker-clean
+.PHONY: install dev test test-cov test-e2e lint format typecheck clean run cli help setup docker-build docker-up docker-down docker-logs docker-clean temporal-up temporal-down temporal-logs worker
 
 # Default target
 help:
@@ -12,6 +12,13 @@ help:
 	@echo "Development:"
 	@echo "  make run         Run the MCP server"
 	@echo "  make cli         Run the CLI (use ARGS='list' for commands)"
+	@echo "  make ui          Run the web UI"
+	@echo ""
+	@echo "Temporal Workflow Engine:"
+	@echo "  make temporal-up   Start Temporal server (Docker)"
+	@echo "  make temporal-down Stop Temporal server"
+	@echo "  make temporal-logs View Temporal logs"
+	@echo "  make worker        Run the indexing worker"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test        Run all tests"
@@ -114,3 +121,20 @@ docker-logs:
 docker-clean:
 	docker compose down --rmi local -v
 
+# Temporal workflow engine
+temporal-up:
+	docker compose -f docker-compose.temporal.yml up -d temporal temporal-ui postgresql
+	@echo "✓ Temporal server starting..."
+	@echo "  - Server: localhost:7233"
+	@echo "  - Web UI: http://localhost:8088"
+	@echo ""
+	@echo "Run 'make worker' to start the indexing worker"
+
+temporal-down:
+	docker compose -f docker-compose.temporal.yml down
+
+temporal-logs:
+	docker compose -f docker-compose.temporal.yml logs -f
+
+worker:
+	TEMPORAL_ADDRESS=localhost:7233 MEM_PROFILE=$(PROFILE) uv run python -m src.worker

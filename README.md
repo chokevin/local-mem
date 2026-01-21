@@ -229,6 +229,71 @@ Tool: add_tags
 }
 ```
 
+## Temporal Workflow Engine (Optional)
+
+For better visibility and reliability when indexing repositories, you can use the optional Temporal workflow engine.
+
+### Setup
+
+1. Start Temporal server:
+```bash
+make temporal-up
+```
+
+2. Start the worker (in a separate terminal):
+```bash
+make worker
+```
+
+3. Temporal Web UI is available at: http://localhost:8088
+
+### Usage
+
+**CLI:**
+```bash
+# Start indexing workflow for local repo
+local-mem workflow index ~/dev/my-repo
+
+# Start indexing workflow for GitHub repo
+local-mem workflow github owner repo
+
+# Check workflow status
+local-mem workflow status <workflow_id>
+
+# Get workflow result
+local-mem workflow result <workflow_id>
+
+# List recent workflows
+local-mem workflow list
+```
+
+**API:**
+```bash
+# Start local repo indexing
+curl -X POST http://localhost:8080/api/workflows/index-local \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/path/to/repo"}'
+
+# Check workflow status
+curl http://localhost:8080/api/workflows/<workflow_id>
+
+# Get workflow result
+curl http://localhost:8080/api/workflows/<workflow_id>/result
+```
+
+### Benefits
+
+- **Visibility**: See all indexing jobs in Temporal Web UI
+- **Durability**: Workflows survive crashes and can be retried
+- **History**: Full execution history for debugging
+- **Async**: Non-blocking indexing for large repositories
+
+### Stopping
+
+```bash
+make temporal-down
+```
+
 ## Development
 
 - `npm run dev`: Run in development mode with auto-reload
