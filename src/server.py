@@ -48,10 +48,96 @@ def extract_project_context(path: Path) -> dict[str, Any]:
     context: dict[str, Any] = {
         "project_type": "unknown",
         "is_monorepo": False,
+        "build_system": [],      # make, bazel, cmake, gradle, etc.
+        "architectures": [],     # x86_64, arm64, amd64, etc.
+        "languages": [],         # go, python, rust, etc.
+        "ci_cd": [],            # github-actions, jenkins, etc.
+        "deployment": {},        # k8s manifests, docker, helm, etc.
         "commands": {},
         "setup": [],
         "services": {},  # For monorepos: service_name -> {path, commands, type}
     }
+    
+    # Detect build systems
+    if (path / "Makefile").exists():
+        context["build_system"].append("make")
+    if (path / "WORKSPACE").exists() or (path / "WORKSPACE.bazel").exists() or list(path.glob("*.bazel")):
+        context["build_system"].append("bazel")
+    if (path / "CMakeLists.txt").exists():
+        context["build_system"].append("cmake")
+    if (path / "build.gradle").exists() or (path / "build.gradle.kts").exists():
+        context["build_system"].append("gradle")
+    if (path / "pom.xml").exists():
+        context["build_system"].append("maven")
+    if (path / "meson.build").exists():
+        context["build_system"].append("meson")
+    
+    # Detect languages
+    if (path / "go.mod").exists() or list(path.glob("**/*.go"))[:1]:
+        context["languages"].append("go")
+    if (path / "pyproject.toml").exists() or (path / "setup.py").exists() or list(path.glob("**/*.py"))[:1]:
+        context["languages"].append("python")
+    if (path / "Cargo.toml").exists() or list(path.glob("**/*.rs"))[:1]:
+        context["languages"].append("rust")
+    if (path / "package.json").exists():
+        context["languages"].append("javascript/typescript")
+    if list(path.glob("**/*.java"))[:1]:
+        context["languages"].append("java")
+    if list(path.glob("**/*.c"))[:1] or list(path.glob("**/*.cpp"))[:1]:
+        context["languages"].append("c/c++")
+    
+    # Detect architectures from various config files
+    arch_patterns = ["x86_64", "x86", "amd64", "arm64", "aarch64", "armv7", "i386", "i686"]
+    arch_files = list(path.glob("Makefile")) + list(path.glob("Dockerfile*")) + \
+                 list(path.glob(".github/workflows/*.yml")) + list(path.glob("*.bazel"))
+    
+    for arch_file in arch_files[:10]:  # Limit to avoid too many reads
+        try:
+            content = arch_file.read_text().lower()
+            for arch in arch_patterns:
+                if arch in content and arch not in context["architectures"]:
+                    # Normalize arch names
+                    normalized = arch
+                    if arch in ["x86_64", "amd64"]:
+                        normalized = "amd64"
+                    elif arch in ["arm64", "aarch64"]:
+                        normalized = "arm64"
+                    if normalized not in context["architectures"]:
+                        context["architectures"].append(normalized)
+        except Exception:
+            pass
+    
+    # Detect CI/CD
+    if (path / ".github" / "workflows").exists():
+        context["ci_cd"].append("github-actions")
+        # List workflow files
+        workflows = list((path / ".github" / "workflows").glob("*.yml"))
+        context["ci_cd_workflows"] = [w.name for w in workflows[:10]]
+    if (path / ".gitlab-ci.yml").exists():
+        context["ci_cd"].append("gitlab-ci")
+    if (path / "Jenkinsfile").exists():
+        context["ci_cd"].append("jenkins")
+    if (path / ".circleci").exists():
+        context["ci_cd"].append("circleci")
+    if (path / "azure-pipelines.yml").exists():
+        context["ci_cd"].append("azure-devops")
+    
+    # Detect deployment/infrastructure
+    deployment = {}
+    if (path / "Dockerfile").exists() or list(path.glob("Dockerfile.*")):
+        deployment["docker"] = True
+    if (path / "docker-compose.yml").exists() or (path / "docker-compose.yaml").exists():
+        deployment["docker-compose"] = True
+    if (path / "deploy").exists() or (path / "manifests").exists() or (path / "k8s").exists():
+        deployment["kubernetes"] = True
+        # Find manifest directories
+        manifest_dirs = list(path.glob("**/manifests")) + list(path.glob("**/k8s")) + list(path.glob("deploy/*"))
+        deployment["manifest_paths"] = [str(d.relative_to(path)) for d in manifest_dirs[:5]]
+    if (path / "helm").exists() or list(path.glob("**/Chart.yaml")):
+        deployment["helm"] = True
+    if (path / "terraform").exists() or list(path.glob("**/*.tf"))[:1]:
+        deployment["terraform"] = True
+    context["deployment"] = deployment
     
     makefile = path / "Makefile"
     package_json = path / "package.json"
