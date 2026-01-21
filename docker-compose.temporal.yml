@@ -6,6 +6,7 @@
 #   - temporal-ui: Web UI for visibility (port 8088)
 #   - postgresql: Persistence backend
 #   - mem-worker: Python worker that executes indexing workflows
+#   - mem-ui: Web dashboard (port 8080)
 
 services:
   postgresql:
@@ -71,6 +72,32 @@ services:
       - /Users/chokevin/dev:/host-dev:ro
     command: ["python", "-m", "src.worker"]
     restart: unless-stopped
+
+  mem-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: local-mem-temporal
+    depends_on:
+      temporal:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - /Users/chokevin/dev:/host-dev:ro
+    environment:
+      - MEM_PROFILE=test
+      - MEM_DATA_DIR=/app/data
+      - MEM_DEV_DIR=/host-dev
+      - TEMPORAL_ADDRESS=temporal:7233
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/workstreams', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   temporal-postgres-data:

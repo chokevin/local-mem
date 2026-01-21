@@ -123,18 +123,23 @@ docker-clean:
 
 # Temporal workflow engine
 temporal-up:
-	docker compose -f docker-compose.temporal.yml up -d temporal temporal-ui postgresql
-	@echo "✓ Temporal server starting..."
-	@echo "  - Server: localhost:7233"
-	@echo "  - Web UI: http://localhost:8088"
+	docker compose -f docker-compose.temporal.yml up -d
+	@echo "✓ Full Temporal stack starting..."
+	@echo "  - Temporal Server: localhost:7233"
+	@echo "  - Temporal UI: http://localhost:8088"
+	@echo "  - mem Web UI: http://localhost:8080"
+	@echo "  - mem Worker: Running in container"
 	@echo ""
-	@echo "Run 'make worker' to start the indexing worker"
+	@echo "View logs: make temporal-logs"
 
 temporal-down:
 	docker compose -f docker-compose.temporal.yml down
 
 temporal-logs:
 	docker compose -f docker-compose.temporal.yml logs -f
+
+temporal-worker-logs:
+	docker compose -f docker-compose.temporal.yml logs -f mem-worker
 
 worker:
 	TEMPORAL_ADDRESS=localhost:7233 MEM_PROFILE=$(PROFILE) uv run python -m src.worker

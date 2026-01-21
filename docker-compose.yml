@@ -16,6 +16,8 @@ services:
       - MEM_PROFILE=test
       - MEM_DATA_DIR=/app/data
       - MEM_DEV_DIR=/host-dev
+      # Temporal connection (use host.docker.internal for Mac/Windows Docker Desktop)
+      - TEMPORAL_ADDRESS=host.docker.internal:7233
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/workstreams', timeout=5)"]
@@ -23,6 +25,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    # Allow connection to host network for Temporal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   # MCP server service (optional, for API access)
   mem-server:

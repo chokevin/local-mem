@@ -1948,37 +1948,82 @@ def get_dashboard_html(current_profile: str) -> str:
             showIndexingPanel(repoName);
             
             try {{
-                // Simulate step progression (actual indexing happens server-side)
-                const stepTimings = [300, 500, 800, 600, 700, 500, 400, 300];
-                let stepIndex = 0;
+                // Try Temporal workflow first
+                let workflowId = null;
+                let useWorkflow = true;
                 
-                const progressInterval = setInterval(() => {{
-                    if (stepIndex > 0) {{
-                        updateIndexingStep(INDEXING_STEPS[stepIndex - 1].id, 'done');
+                try {{
+                    const startResponse = await fetch('/api/workflows/index-local?profile={current_profile}', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{ path: selectedRepoPath }})
+                    }});
+                    
+                    if (startResponse.ok) {{
+                        const data = await startResponse.json();
+                        workflowId = data.workflow_id;
+                        console.log('Started workflow:', workflowId);
+                        
+                        // Update panel to show workflow ID
+                        const header = document.querySelector('.indexing-header h3');
+                        if (header) {{
+                            header.innerHTML = `<div class="spinner"></div> Indexing via Temporal`;
+                        }}
+                        
+                        // Poll for workflow status
+                        await pollWorkflowStatus(workflowId);
+                    }} else if (startResponse.status === 503) {{
+                        // Temporal not available, fall back to sync
+                        console.log('Temporal unavailable, using sync indexing');
+                        useWorkflow = false;
+                    }} else {{
+                        const error = await startResponse.json();
+                        throw new Error(error.detail || 'Failed to start workflow');
                     }}
-                    if (stepIndex < INDEXING_STEPS.length) {{
-                        updateIndexingStep(INDEXING_STEPS[stepIndex].id, 'active');
-                        stepIndex++;
+                }} catch (e) {{
+                    if (e.message.includes('Temporal') || e.message.includes('503')) {{
+                        useWorkflow = false;
+                    }} else {{
+                        throw e;
                     }}
-                }}, 400);
+                }}
                 
-                const response = await fetch('/api/repos/index?profile={current_profile}', {{
-                    method: 'POST',
-                    headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ path: selectedRepoPath }})
-                }});
-                
-                clearInterval(progressInterval);
+                // Fallback to sync indexing
+                if (!useWorkflow) {{
+                    console.log('Using sync indexing fallback');
+                    const header = document.querySelector('.indexing-header h3');
+                    if (header) {{
+                        header.innerHTML = `<div class="spinner"></div> Indexing (sync)`;
+                    }}
+                    
+                    // Simulate step progression
+                    let stepIndex = 0;
+                    const progressInterval = setInterval(() => {{
+                        if (stepIndex > 0) {{
+                            updateIndexingStep(INDEXING_STEPS[stepIndex - 1].id, 'done');
+                        }}
+                        if (stepIndex < INDEXING_STEPS.length) {{
+                            updateIndexingStep(INDEXING_STEPS[stepIndex].id, 'active');
+                            stepIndex++;
+                        }}
+                    }}, 400);
+                    
+                    const response = await fetch('/api/repos/index?profile={current_profile}', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{ path: selectedRepoPath }})
+                    }});
+                    
+                    clearInterval(progressInterval);
+                    
+                    if (!response.ok) {{
+                        const error = await response.json();
+                        throw new Error(error.detail || 'Failed to index');
+                    }}
+                }}
                 
                 // Mark all steps done
                 INDEXING_STEPS.forEach(step => updateIndexingStep(step.id, 'done'));
-                
-                if (!response.ok) {{
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to index');
-                }}
-                
-                const ws = await response.json();
                 
                 // Show success
                 hideIndexingPanel(true);
@@ -1997,6 +2042,67 @@ def get_dashboard_html(current_profile: str) -> str:
                 btn.classList.remove('loading');
                 updateIndexButton(reposData.find(r => r.path === selectedRepoPath));
             }}
+        }}
+        
+        async function pollWorkflowStatus(workflowId) {{
+            const maxAttempts = 120;  // 2 minutes max
+            const pollInterval = 1000;  // 1 second
+            
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {{
+                try {{
+                    const response = await fetch(`/api/workflows/${{workflowId}}`);
+                    const status = await response.json();
+                    
+                    console.log('Workflow status:', status);
+                    
+                    // Update steps based on workflow status
+                    if (status.status === 'COMPLETED') {{
+                        return true;
+                    }} else if (status.status === 'FAILED' || status.status === 'TERMINATED') {{
+                        throw new Error(status.error || 'Workflow failed');
+                    }}
+                    
+                    // Update progress panel based on elapsed time
+                    const elapsed = attempt;
+                    if (elapsed >= 1) updateIndexingStep('init', 'done');
+                    if (elapsed >= 2) {{
+                        updateIndexingStep('scan', 'active');
+                    }}
+                    if (elapsed >= 4) {{
+                        updateIndexingStep('scan', 'done');
+                        updateIndexingStep('readme', 'active');
+                    }}
+                    if (elapsed >= 6) {{
+                        updateIndexingStep('readme', 'done');
+                        updateIndexingStep('docs', 'active');
+                    }}
+                    if (elapsed >= 8) {{
+                        updateIndexingStep('docs', 'done');
+                        updateIndexingStep('context', 'active');
+                    }}
+                    if (elapsed >= 10) {{
+                        updateIndexingStep('context', 'done');
+                        updateIndexingStep('services', 'active');
+                    }}
+                    if (elapsed >= 12) {{
+                        updateIndexingStep('services', 'done');
+                        updateIndexingStep('commits', 'active');
+                    }}
+                    if (elapsed >= 14) {{
+                        updateIndexingStep('commits', 'done');
+                        updateIndexingStep('save', 'active');
+                    }}
+                    
+                    await new Promise(resolve => setTimeout(resolve, pollInterval));
+                }} catch (e) {{
+                    if (e.message.includes('Workflow failed')) {{
+                        throw e;
+                    }}
+                    console.error('Error polling workflow:', e);
+                }}
+            }}
+            
+            throw new Error('Workflow timed out');
         }}
         
         document.addEventListener('DOMContentLoaded', () => {{
