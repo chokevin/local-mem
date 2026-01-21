@@ -5,11 +5,13 @@ Web UI for viewing workstreams.
 from __future__ import annotations
 
 import asyncio
+import os
 from collections.abc import AsyncGenerator
-from typing import Any
+from pathlib import Path
+from typing import Any, Optional
 
-from fastapi import Cookie, FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import Body, Cookie, FastAPI, HTTPException, Query, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .storage import DEFAULT_PROFILE, WorkstreamStorage
@@ -1872,6 +1874,68 @@ async def instantiate_template(
     if not workstream:
         raise HTTPException(status_code=404, detail="Template not found")
     return workstream.to_dict()
+
+
+class SearchRequest(BaseModel):
+    """Request body for search endpoint."""
+    q: str
+    limit: int = 20
+    fields: Optional[list[str]] = None
+
+
+class SearchResult(BaseModel):
+    """A single search result."""
+    id: str
+    name: str
+    summary: str
+    tags: list[str]
+    parent_id: Optional[str]
+    score: float
+    highlights: dict[str, str]
+
+
+class SearchResponse(BaseModel):
+    """Response from search endpoint."""
+    query: str
+    total: int
+    results: list[SearchResult]
+
+
+@app.post("/api/search")
+async def search_workstreams(
+    request: SearchRequest,
+    profile: str = Query(default=DEFAULT_PROFILE),
+) -> SearchResponse:
+    """
+    Full-text search across workstreams.
+
+    Supports AND/OR operators, phrase search, and field-specific queries.
+    
+    Examples:
+    - Simple: {"q": "api deployment"}
+    - AND: {"q": "api AND deployment"}
+    - OR: {"q": "frontend OR backend"}
+    - Phrase: {"q": '"exact phrase"'}
+    - Field-specific: {"q": "name:api tags:python"}
+    """
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    # Rebuild index if needed (first search after load)
+    search_engine = storage._get_search_engine()
+    results = search_engine.search(
+        query=request.q,
+        limit=request.limit,
+        fields=request.fields,
+    )
+
+    return SearchResponse(
+        query=request.q,
+        total=len(results),
+        results=[SearchResult(**r) for r in results],
+    )
 
 
 def main():
