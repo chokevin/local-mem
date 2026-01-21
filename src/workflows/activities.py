@@ -307,7 +307,9 @@ async def save_local_workstream(
                     if readme_file.exists():
                         try:
                             readme_content = readme_file.read_text()[:3000]
-                            await storage.add_note(svc_ws.id, f"[README]\n{readme_content}", "context")
+                            await storage.add_note(
+                                svc_ws.id, f"[README]\n{readme_content}", "context"
+                            )
                         except Exception:
                             pass
 

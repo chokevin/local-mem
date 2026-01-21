@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 from temporalio.client import Client
 
@@ -43,7 +42,7 @@ async def start_github_indexing(
     owner: str,
     repo: str,
     profile: str = "test",
-    client: Optional[Client] = None,
+    client: Client | None = None,
 ) -> WorkflowHandle:
     """Start a GitHub repository indexing workflow.
 
@@ -77,7 +76,7 @@ async def start_github_indexing(
 async def start_local_indexing(
     repo_path: str,
     profile: str = "test",
-    client: Optional[Client] = None,
+    client: Client | None = None,
 ) -> WorkflowHandle:
     """Start a local repository indexing workflow.
 
@@ -111,7 +110,7 @@ async def start_local_indexing(
 
 async def get_workflow_result(
     workflow_id: str,
-    client: Optional[Client] = None,
+    client: Client | None = None,
 ) -> IndexResult:
     """Get the result of a completed workflow.
 
@@ -136,7 +135,7 @@ async def get_workflow_result(
 
 async def get_workflow_status(
     workflow_id: str,
-    client: Optional[Client] = None,
+    client: Client | None = None,
 ) -> dict:
     """Get the status of a workflow.
 
@@ -166,7 +165,7 @@ async def get_workflow_status(
 
 
 async def list_workflows(
-    client: Optional[Client] = None,
+    client: Client | None = None,
     query: str = "",
 ) -> list[dict]:
     """List workflows with optional query filter.
@@ -183,13 +182,15 @@ async def list_workflows(
 
     workflows = []
     async for wf in client.list_workflows(query=query):
-        workflows.append({
-            "workflow_id": wf.id,
-            "run_id": wf.run_id,
-            "status": wf.status.name,
-            "workflow_type": wf.workflow_type,
-            "start_time": wf.start_time.isoformat() if wf.start_time else None,
-            "close_time": wf.close_time.isoformat() if wf.close_time else None,
-        })
+        workflows.append(
+            {
+                "workflow_id": wf.id,
+                "run_id": wf.run_id,
+                "status": wf.status.name,
+                "workflow_type": wf.workflow_type,
+                "start_time": wf.start_time.isoformat() if wf.start_time else None,
+                "close_time": wf.close_time.isoformat() if wf.close_time else None,
+            }
+        )
 
     return workflows

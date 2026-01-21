@@ -165,7 +165,7 @@ async def cmd_tree(storage: WorkstreamStorage) -> None:
         print("No workstreams found.")
         return
 
-    def print_tree(ws: "Workstream", indent: int = 0) -> None:
+    def print_tree(ws: Workstream, indent: int = 0) -> None:
         prefix = "  " * indent + ("└─ " if indent > 0 else "")
         tags_str = f" [{', '.join(ws.tags[:3])}]" if ws.tags else ""
         print(f"{prefix}{ws.name}{tags_str}")
@@ -209,6 +209,120 @@ async def cmd_suggest(storage: WorkstreamStorage) -> None:
     print("To link workstreams, use: local-mem set-parent <child_id> <parent_id>")
 
 
+async def cmd_workflow(profile: str, cmd_args: list[str]) -> None:
+    """Handle workflow commands."""
+    if not cmd_args:
+        print("Error: Please provide a workflow subcommand", file=sys.stderr)
+        print("Usage: local-mem workflow <index|github|status|result|list> [args]", file=sys.stderr)
+        sys.exit(1)
+
+    subcommand = cmd_args[0]
+    sub_args = cmd_args[1:]
+
+    if subcommand == "index":
+        if not sub_args:
+            print("Error: Please provide a repository path", file=sys.stderr)
+            print("Usage: local-mem workflow index <path>", file=sys.stderr)
+            sys.exit(1)
+        try:
+            from .workflows.client import start_local_indexing
+
+            handle = await start_local_indexing(sub_args[0], profile=profile)
+            print(f"✓ Started workflow: {handle.workflow_id}")
+            print(f"  Run ID: {handle.run_id}")
+            print(f"\nCheck status with: local-mem workflow status {handle.workflow_id}")
+        except Exception as e:
+            print(f"Error: Failed to start workflow: {e}", file=sys.stderr)
+            print(
+                "Make sure Temporal is running (make temporal-up) and worker is started (make worker)",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    elif subcommand == "github":
+        if len(sub_args) < 2:
+            print("Error: Please provide owner and repo", file=sys.stderr)
+            print("Usage: local-mem workflow github <owner> <repo>", file=sys.stderr)
+            sys.exit(1)
+        try:
+            from .workflows.client import start_github_indexing
+
+            handle = await start_github_indexing(sub_args[0], sub_args[1], profile=profile)
+            print(f"✓ Started workflow: {handle.workflow_id}")
+            print(f"  Run ID: {handle.run_id}")
+            print(f"\nCheck status with: local-mem workflow status {handle.workflow_id}")
+        except Exception as e:
+            print(f"Error: Failed to start workflow: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif subcommand == "status":
+        if not sub_args:
+            print("Error: Please provide a workflow ID", file=sys.stderr)
+            print("Usage: local-mem workflow status <workflow_id>", file=sys.stderr)
+            sys.exit(1)
+        try:
+            from .workflows.client import get_workflow_status
+
+            status = await get_workflow_status(sub_args[0])
+            print(f"Workflow: {status['workflow_id']}")
+            print(f"  Status: {status['status']}")
+            print(f"  Type: {status.get('workflow_type', 'N/A')}")
+            print(f"  Started: {status.get('start_time', 'N/A')}")
+            if status.get("close_time"):
+                print(f"  Completed: {status['close_time']}")
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif subcommand == "result":
+        if not sub_args:
+            print("Error: Please provide a workflow ID", file=sys.stderr)
+            print("Usage: local-mem workflow result <workflow_id>", file=sys.stderr)
+            sys.exit(1)
+        try:
+            from .workflows.client import get_workflow_result
+
+            result = await get_workflow_result(sub_args[0])
+            if result.success:
+                print("✓ Workflow completed successfully")
+                print(f"  Workstream: {result.workstream_name} ({result.workstream_id})")
+                print(f"  Notes added: {result.notes_added}")
+                if result.services_indexed:
+                    print(f"  Services indexed: {result.services_indexed}")
+            else:
+                print(f"✗ Workflow failed: {result.error}")
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    elif subcommand == "list":
+        try:
+            from .workflows.client import list_workflows
+
+            workflows = await list_workflows()
+            if not workflows:
+                print("No workflows found.")
+                return
+            print(f"\nRecent workflows ({len(workflows)}):\n")
+            for wf in workflows[:20]:
+                status_icon = {"COMPLETED": "✓", "RUNNING": "⋯", "FAILED": "✗"}.get(
+                    wf["status"], "?"
+                )
+                print(f"  {status_icon} {wf['workflow_id']}")
+                print(f"    Type: {wf.get('workflow_type', 'N/A')}")
+                print(f"    Status: {wf['status']}")
+                print(f"    Started: {wf.get('start_time', 'N/A')}")
+                print()
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    else:
+        print(f"Unknown workflow subcommand: {subcommand}", file=sys.stderr)
+        print("Available: index, github, status, result, list", file=sys.stderr)
+        sys.exit(1)
+
+
 def show_help() -> None:
     """Show help message."""
     print(
@@ -233,6 +347,13 @@ Commands:
   suggest                           Suggest relationships using heuristics
   help                              Show this help message
 
+Workflow Commands (requires Temporal):
+  workflow index <path>             Start indexing workflow for local repo
+  workflow github <owner> <repo>    Start indexing workflow for GitHub repo
+  workflow status <workflow_id>     Get workflow status
+  workflow result <workflow_id>     Get workflow result
+  workflow list                     List recent workflows
+
 Options:
   --profile, -p <name>              Profile to use (default: {DEFAULT_PROFILE})
                                     Available: test, prod
@@ -247,6 +368,8 @@ Examples:
   local-mem set-parent ws-456 none     # Remove parent from ws-456
   local-mem children ws-123            # List children of ws-123
   local-mem suggest                    # Get relationship suggestions
+  local-mem workflow index ~/dev/myrepo  # Index local repo via Temporal
+  local-mem workflow status index-local-myrepo-abc123  # Check workflow status
     """
     )
 
@@ -263,7 +386,8 @@ async def main() -> None:
     parser.add_argument("--metadata", "-m", help="JSON metadata")
     parser.add_argument("--parent", help="Parent workstream ID")
     parser.add_argument(
-        "--cat", "-c",
+        "--cat",
+        "-c",
         choices=["decision", "blocker", "changed", "context", "tried", "resume", "other"],
         help="Note category (decision, blocker, changed, context, tried, resume)",
     )
@@ -322,7 +446,10 @@ async def main() -> None:
     elif command == "note":
         if len(cmd_args) < 2:
             print("Error: Please provide workstream ID and note", file=sys.stderr)
-            print('Usage: local-mem note <id> "Your note here" [--cat decision|blocker|changed|context|tried|resume]', file=sys.stderr)
+            print(
+                'Usage: local-mem note <id> "Your note here" [--cat decision|blocker|changed|context|tried|resume]',
+                file=sys.stderr,
+            )
             sys.exit(1)
         await cmd_note(storage, cmd_args[0], " ".join(cmd_args[1:]), args.cat)
     elif command == "notes":
@@ -338,12 +465,14 @@ async def main() -> None:
     elif command == "set-parent":
         if len(cmd_args) < 2:
             print("Error: Please provide workstream ID and parent ID", file=sys.stderr)
-            print('Usage: local-mem set-parent <id> <parent_id>', file=sys.stderr)
+            print("Usage: local-mem set-parent <id> <parent_id>", file=sys.stderr)
             sys.exit(1)
         parent_id = None if cmd_args[1].lower() == "none" else cmd_args[1]
         await cmd_set_parent(storage, cmd_args[0], parent_id)
     elif command == "suggest":
         await cmd_suggest(storage)
+    elif command == "workflow":
+        await cmd_workflow(args.profile, cmd_args)
     elif command in ("help", "--help", "-h"):
         show_help()
     else:
