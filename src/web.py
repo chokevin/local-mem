@@ -297,58 +297,284 @@ def get_dashboard_html(current_profile: str) -> str:
             gap: 1rem;
         }}
         
-        .repo-selector {{
+        /* Focus Selector (workstreams) */
+        .focus-selector {{
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }}
         
-        .repo-selector select {{
+        .focus-selector label {{
+            font-size: 0.8rem;
+            color: #8b949e;
+        }}
+        
+        .focus-selector select {{
             background: #21262d;
             border: 1px solid #30363d;
             border-radius: 6px;
             color: #c9d1d9;
-            padding: 0.375rem 0.75rem;
-            font-size: 0.8rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
             cursor: pointer;
-            min-width: 180px;
+            min-width: 200px;
         }}
         
-        .repo-selector select option.indexed {{
-            color: #3fb950;
+        .focus-selector select:hover {{
+            border-color: #58a6ff;
         }}
         
-        .repo-selector select option.not-indexed {{
+        /* Floating Action Button for Indexing */
+        .fab {{
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #238636, #2ea043);
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(35, 134, 54, 0.4);
+            z-index: 200;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        .fab:hover {{
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(35, 134, 54, 0.6);
+        }}
+        
+        .fab:active {{
+            transform: scale(0.95);
+        }}
+        
+        /* Index Modal */
+        .modal-overlay {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 300;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }}
+        
+        .modal-overlay.active {{
+            display: flex;
+            animation: fadeIn 0.2s ease-out;
+        }}
+        
+        @keyframes fadeIn {{
+            from {{ opacity: 0; }}
+            to {{ opacity: 1; }}
+        }}
+        
+        .modal {{
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            animation: slideUp 0.3s ease-out;
+        }}
+        
+        @keyframes slideUp {{
+            from {{ transform: translateY(20px); opacity: 0; }}
+            to {{ transform: translateY(0); opacity: 1; }}
+        }}
+        
+        .modal-header {{
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .modal-header h2 {{
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #f0f6fc;
+        }}
+        
+        .modal-close {{
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+        }}
+        
+        .modal-close:hover {{
+            color: #f0f6fc;
+        }}
+        
+        .modal-body {{
+            padding: 1rem;
+            max-height: 60vh;
+            overflow-y: auto;
+        }}
+        
+        .repo-list {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }}
+        
+        .repo-item {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            transition: border-color 0.2s;
+        }}
+        
+        .repo-item:hover {{
+            border-color: #58a6ff;
+        }}
+        
+        .repo-item.indexing {{
+            border-color: #58a6ff;
+            background: rgba(88, 166, 255, 0.1);
+        }}
+        
+        .repo-info {{
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }}
+        
+        .repo-icon {{
+            font-size: 1.2rem;
+        }}
+        
+        .repo-name {{
+            font-weight: 500;
+            color: #c9d1d9;
+        }}
+        
+        .repo-status {{
+            font-size: 0.75rem;
             color: #8b949e;
         }}
         
-        .index-btn {{
+        .repo-status.indexed {{
+            color: #3fb950;
+        }}
+        
+        .repo-action {{
             background: #238636;
             border: none;
             border-radius: 6px;
             color: white;
-            padding: 0.375rem 0.75rem;
+            padding: 0.4rem 0.75rem;
             font-size: 0.75rem;
             cursor: pointer;
-            white-space: nowrap;
+            transition: background 0.2s;
         }}
         
-        .index-btn:hover {{
+        .repo-action:hover {{
             background: #2ea043;
         }}
         
-        .index-btn:disabled {{
+        .repo-action.reindex {{
             background: #21262d;
-            color: #8b949e;
+            border: 1px solid #30363d;
+        }}
+        
+        .repo-action.reindex:hover {{
+            background: #30363d;
+        }}
+        
+        .repo-action:disabled {{
+            opacity: 0.5;
             cursor: not-allowed;
         }}
         
-        .index-btn.loading {{
-            position: relative;
-            color: transparent;
+        .repo-item-info {{
+            flex: 1;
+            min-width: 0;
         }}
         
-        .index-btn.loading::after {{
+        .repo-item-name {{
+            font-weight: 500;
+            color: #c9d1d9;
+            margin-bottom: 0.25rem;
+        }}
+        
+        .repo-item-path {{
+            font-size: 0.75rem;
+            color: #6e7681;
+            font-family: 'SF Mono', Monaco, monospace;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        
+        .repo-item-action {{
+            background: #238636;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }}
+        
+        .repo-item-action:hover {{
+            background: #2ea043;
+        }}
+        
+        .repo-item-action:disabled {{
+            opacity: 0.5;
+            cursor: not-allowed;
+        }}
+        
+        .repo-item.indexed {{
+            border-color: #3fb950;
+        }}
+        
+        .repo-item.indexed .repo-item-name {{
+            color: #3fb950;
+        }}
+        
+        .repo-item.indexed .repo-item-action {{
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #8b949e;
+        }}
+        
+        .repo-item.indexed .repo-item-action:hover {{
+            background: #30363d;
+            color: #c9d1d9;
+        }}
+        
+        .repo-action.loading {{
+            position: relative;
+            color: transparent;
+            pointer-events: none;
+        }}
+        
+        .repo-action.loading::after {{
             content: "";
             position: absolute;
             width: 12px;
@@ -1117,11 +1343,11 @@ def get_dashboard_html(current_profile: str) -> str:
             <span class="profile-badge">{current_profile}</span>
         </div>
         <div class="controls">
-            <div class="repo-selector">
-                <select id="repo-select" onchange="onRepoSelect(this.value)">
-                    <option value="">Select repo...</option>
+            <div class="focus-selector">
+                <label>🔍 Focus:</label>
+                <select id="focus-select" onchange="onFocusSelect(this.value)">
+                    <option value="">All workstreams</option>
                 </select>
-                <button class="index-btn" id="index-btn" onclick="indexSelectedRepo()" disabled>Index</button>
             </div>
             <div class="profile-selector">
                 <select onchange="document.cookie = 'workstream_profile=' + this.value + ';max-age=31536000;path=/'; window.location.href='/?profile=' + this.value">
@@ -1131,6 +1357,26 @@ def get_dashboard_html(current_profile: str) -> str:
             <div class="status">
                 <div class="status-dot"></div>
                 <span>Live</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Floating Action Button for Indexing -->
+    <button class="fab" onclick="openIndexModal()" title="Index a repository">
+        <span>+</span>
+    </button>
+    
+    <!-- Index Modal -->
+    <div class="modal-overlay" id="index-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📁 Index Repository</h2>
+                <button class="modal-close" onclick="closeIndexModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="repo-list" id="repo-list">
+                    <div class="empty-state">Loading repositories...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -1767,37 +2013,69 @@ def get_dashboard_html(current_profile: str) -> str:
         
         // ============== Repo Selector ==============
         let reposData = [];
-        let selectedRepoPath = null;
+        let focusedWorkstreamId = null;
         
-        async function loadRepos() {{
-            try {{
-                const response = await fetch('/api/repos?profile={current_profile}');
-                reposData = await response.json();
-                populateRepoDropdown();
-            }} catch (e) {{
-                console.error('Failed to load repos:', e);
-            }}
-        }}
-        
-        function populateRepoDropdown() {{
-            const select = document.getElementById('repo-select');
-            select.innerHTML = '<option value="">Select repo...</option>';
+        // ============== Focus Selector ==============
+        function populateFocusSelector() {{
+            const select = document.getElementById('focus-select');
+            select.innerHTML = '<option value="">All workstreams</option>';
             
-            // Get active repo from cookie
-            const activeRepo = getCookie('active_repo');
+            // Get focused workstream from cookie
+            const focusedId = getCookie('focused_workstream');
             
-            reposData.forEach(repo => {{
+            Object.values(workstreamData).forEach(ws => {{
                 const option = document.createElement('option');
-                option.value = repo.path;
-                option.textContent = repo.indexed ? `✓ ${{repo.name}}` : repo.name;
-                option.className = repo.indexed ? 'indexed' : 'not-indexed';
-                if (repo.path === activeRepo) {{
+                option.value = ws.id;
+                option.textContent = ws.name;
+                if (ws.id === focusedId) {{
                     option.selected = true;
-                    selectedRepoPath = repo.path;
-                    updateIndexButton(repo);
+                    focusedWorkstreamId = ws.id;
                 }}
                 select.appendChild(option);
             }});
+            
+            // Apply initial focus if set
+            if (focusedWorkstreamId) {{
+                applyFocus(focusedWorkstreamId);
+            }}
+        }}
+        
+        function onFocusSelect(workstreamId) {{
+            focusedWorkstreamId = workstreamId || null;
+            
+            // Save to cookie
+            if (workstreamId) {{
+                document.cookie = `focused_workstream=${{workstreamId}};max-age=31536000;path=/`;
+            }} else {{
+                document.cookie = 'focused_workstream=;max-age=0;path=/';
+            }}
+            
+            applyFocus(workstreamId);
+        }}
+        
+        function applyFocus(workstreamId) {{
+            if (workstreamId && workstreamData[workstreamId]) {{
+                const ws = workstreamData[workstreamId];
+                showWorkstreamPanel(ws);
+                highlightNode(workstreamId);
+                
+                // Center graph on focused workstream
+                const node = nodes.find(n => n.id === workstreamId);
+                if (node && svg) {{
+                    const transform = d3.zoomIdentity
+                        .translate(window.innerWidth / 2, window.innerHeight / 2)
+                        .scale(1.5)
+                        .translate(-node.x, -node.y);
+                    svg.transition().duration(750).call(zoom.transform, transform);
+                }}
+            }} else {{
+                // Reset to show all
+                hidePanel();
+                highlightNode(null);
+                if (svg) {{
+                    svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+                }}
+            }}
         }}
         
         function getCookie(name) {{
@@ -1805,40 +2083,6 @@ def get_dashboard_html(current_profile: str) -> str:
             const parts = value.split(`; ${{name}}=`);
             if (parts.length === 2) return parts.pop().split(';').shift();
             return null;
-        }}
-        
-        function onRepoSelect(path) {{
-            selectedRepoPath = path;
-            const repo = reposData.find(r => r.path === path);
-            updateIndexButton(repo);
-            
-            // Save to cookie
-            if (path) {{
-                document.cookie = `active_repo=${{path}};max-age=31536000;path=/`;
-            }}
-            
-            // If indexed, highlight in graph and show detail panel
-            if (repo && repo.indexed && repo.workstream_id) {{
-                const ws = workstreamData[repo.workstream_id];
-                if (ws) {{
-                    showWorkstreamPanel(ws);
-                    highlightNode(repo.workstream_id);
-                }}
-            }}
-        }}
-        
-        function updateIndexButton(repo) {{
-            const btn = document.getElementById('index-btn');
-            if (!repo) {{
-                btn.disabled = true;
-                btn.textContent = 'Index';
-            }} else if (repo.indexed) {{
-                btn.disabled = false;
-                btn.textContent = 'Re-index';
-            }} else {{
-                btn.disabled = false;
-                btn.textContent = 'Index';
-            }}
         }}
         
         function highlightNode(workstreamId) {{
@@ -1935,37 +2179,82 @@ def get_dashboard_html(current_profile: str) -> str:
             }}
         }}
         
-        async function indexSelectedRepo() {{
-            if (!selectedRepoPath) return;
+        // ============== Index Modal ==============
+        async function loadReposForModal() {{
+            try {{
+                const response = await fetch('/api/repos?profile={current_profile}');
+                reposData = await response.json();
+                renderRepoList();
+            }} catch (e) {{
+                console.error('Failed to load repos:', e);
+                document.getElementById('repo-list').innerHTML = 
+                    '<div class="empty-state">Failed to load repositories</div>';
+            }}
+        }}
+        
+        function renderRepoList() {{
+            const container = document.getElementById('repo-list');
             
-            const btn = document.getElementById('index-btn');
-            const repoName = selectedRepoPath.split('/').pop();
+            if (reposData.length === 0) {{
+                container.innerHTML = '<div class="empty-state">No repositories found in dev folder</div>';
+                return;
+            }}
             
-            btn.classList.add('loading');
-            btn.disabled = true;
+            container.innerHTML = reposData.map(repo => `
+                <div class="repo-item ${{repo.indexed ? 'indexed' : ''}}" data-path="${{repo.path}}">
+                    <div class="repo-item-info">
+                        <div class="repo-item-name">
+                            ${{repo.indexed ? '✓ ' : ''}}${{repo.name}}
+                        </div>
+                        <div class="repo-item-path">${{repo.path}}</div>
+                    </div>
+                    <button class="repo-item-action" onclick="indexRepo('${{repo.path.replace(/'/g, "\\\\'")}}')">
+                        ${{repo.indexed ? 'Re-index' : 'Index'}}
+                    </button>
+                </div>
+            `).join('');
+        }}
+        
+        function openIndexModal() {{
+            document.getElementById('index-modal').classList.add('active');
+            loadReposForModal();
+        }}
+        
+        function closeIndexModal() {{
+            document.getElementById('index-modal').classList.remove('active');
+        }}
+        
+        // Close modal on backdrop click
+        document.getElementById('index-modal').addEventListener('click', (e) => {{
+            if (e.target.classList.contains('modal-overlay')) {{
+                closeIndexModal();
+            }}
+        }});
+        
+        async function indexRepo(repoPath) {{
+            const repoName = repoPath.split('/').pop();
+            
+            // Find and disable the button
+            const repoItem = document.querySelector(`.repo-item[data-path="${{repoPath}}"]`);
+            const btn = repoItem?.querySelector('.repo-item-action');
+            if (btn) {{
+                btn.disabled = true;
+                btn.textContent = 'Indexing...';
+            }}
             
             // Show indexing panel
             showIndexingPanel(repoName);
             
             try {{
                 // Simulate step progression (actual indexing happens server-side)
-                const stepTimings = [300, 500, 800, 600, 700, 500, 400, 300];
-                let stepIndex = 0;
-                
                 const progressInterval = setInterval(() => {{
-                    if (stepIndex > 0) {{
-                        updateIndexingStep(INDEXING_STEPS[stepIndex - 1].id, 'done');
-                    }}
-                    if (stepIndex < INDEXING_STEPS.length) {{
-                        updateIndexingStep(INDEXING_STEPS[stepIndex].id, 'active');
-                        stepIndex++;
-                    }}
+                    // Progress handled by panel or SSE
                 }}, 400);
                 
                 const response = await fetch('/api/repos/index?profile={current_profile}', {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ path: selectedRepoPath }})
+                    body: JSON.stringify({{ path: repoPath }})
                 }});
                 
                 clearInterval(progressInterval);
@@ -1983,8 +2272,8 @@ def get_dashboard_html(current_profile: str) -> str:
                 // Show success
                 hideIndexingPanel(true);
                 
-                // Reload repos to update indexed status
-                await loadRepos();
+                // Close modal and refresh
+                closeIndexModal();
                 
                 // Refresh page to show new workstream
                 setTimeout(() => location.reload(), 2000);
@@ -1992,16 +2281,18 @@ def get_dashboard_html(current_profile: str) -> str:
             }} catch (e) {{
                 console.error('Failed to index repo:', e);
                 hideIndexingPanel(false);
+                if (btn) {{
+                    btn.disabled = false;
+                    btn.textContent = reposData.find(r => r.path === repoPath)?.indexed ? 'Re-index' : 'Index';
+                }}
                 alert('Failed to index repository: ' + e.message);
-            }} finally {{
-                btn.classList.remove('loading');
-                updateIndexButton(reposData.find(r => r.path === selectedRepoPath));
             }}
         }}
         
         document.addEventListener('DOMContentLoaded', () => {{
             initGraph();
-            loadRepos();
+            // Populate focus selector after workstreams are loaded
+            setTimeout(populateFocusSelector, 100);
             observer.observe(document.getElementById('data-container'), {{ childList: true, subtree: true }});
         }});
     </script>
