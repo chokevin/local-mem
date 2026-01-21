@@ -1209,14 +1209,61 @@ SERVICES ({len(context['services'])}):
 {services_list}
 """
                     await storage.add_note(workstream.id, quick_ref, "REFERENCE")
+                    
+                    # Create child workstreams for each service
+                    for svc_name, svc_info in context["services"].items():
+                        svc_path = path / svc_info["path"]
+                        
+                        # Read service README if exists
+                        readme_content = ""
+                        readme_file = svc_path / "README.md"
+                        if readme_file.exists():
+                            try:
+                                readme_content = readme_file.read_text()[:3000]
+                            except Exception:
+                                pass
+                        
+                        # Create child workstream
+                        svc_request = CreateWorkstreamRequest(
+                            name=f"Service: {svc_name}",
+                            summary=f"Monorepo service - {svc_info['type']} module at {svc_info['path']}",
+                            tags=["service", svc_info["type"], svc_name] + additional_tags,
+                            parent_id=workstream.id,
+                            metadata={
+                                "service_name": svc_name,
+                                "service_type": svc_info["type"],
+                                "service_path": svc_info["path"],
+                                "commands": svc_info.get("commands", {}),
+                                "repo_path": str(svc_path),
+                            },
+                        )
+                        svc_ws = await storage.create(svc_request)
+                        
+                        # Add README note if exists
+                        if readme_content:
+                            await storage.add_note(svc_ws.id, f"[README]\n{readme_content}", "CONTEXT")
+                        
+                        # Add quick reference for service
+                        cmds = svc_info.get("commands", {})
+                        svc_ref = f"""[QUICK REFERENCE] {svc_name}
+Type: {svc_info['type']}
+Path: cd {svc_info['path']}
+Build: {cmds.get('build', 'N/A')}
+Test: {cmds.get('test', 'N/A')}
+"""
+                        await storage.add_note(svc_ws.id, svc_ref, "REFERENCE")
                 
                 # Reload to get notes
                 workstream = await storage.get(workstream.id)
                 
+                # Get children count for response
+                children = await storage.get_children(workstream.id)
+                
                 return [
                     TextContent(
                         type="text",
-                        text=f"Indexed local repository: {path}\n\n"
+                        text=f"Indexed local repository: {path}\n"
+                        + f"Created {len(children)} child workstreams for services\n\n"
                         + json.dumps(workstream.to_dict(), indent=2),
                     )
                 ]
