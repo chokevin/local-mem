@@ -1970,8 +1970,8 @@ def get_dashboard_html(current_profile: str) -> str:
                             header.innerHTML = `<div class="spinner"></div> Indexing via Temporal`;
                         }}
                         
-                        // Poll for workflow status
-                        await pollWorkflowStatus(workflowId);
+                        // Stream workflow status via SSE
+                        await streamWorkflowStatus(workflowId);
                     }} else if (startResponse.status === 503) {{
                         // Temporal not available, fall back to sync
                         console.log('Temporal unavailable, using sync indexing');
@@ -2044,6 +2044,97 @@ def get_dashboard_html(current_profile: str) -> str:
             }}
         }}
         
+        function streamWorkflowStatus(workflowId) {{
+            return new Promise((resolve, reject) => {{
+                const eventSource = new EventSource(`/api/workflows/${{workflowId}}/stream`);
+                let stepIndex = 0;
+                
+                eventSource.addEventListener('status', (e) => {{
+                    const data = JSON.parse(e.data);
+                    console.log('Workflow status:', data);
+                    
+                    // Update header with status
+                    const header = document.querySelector('.indexing-header h3');
+                    if (header && data.status === 'RUNNING') {{
+                        header.innerHTML = `<div class="spinner"></div> Indexing: ${{data.status}}`;
+                    }}
+                }});
+                
+                eventSource.addEventListener('progress', (e) => {{
+                    const data = JSON.parse(e.data);
+                    const pollCount = data.poll_count || 0;
+                    
+                    // Map progress to steps (roughly)
+                    if (pollCount >= 0) updateIndexingStep('init', 'done');
+                    if (pollCount >= 1) {{
+                        updateIndexingStep('scan', 'active');
+                    }}
+                    if (pollCount >= 2) {{
+                        updateIndexingStep('scan', 'done');
+                        updateIndexingStep('readme', 'active');
+                    }}
+                    if (pollCount >= 3) {{
+                        updateIndexingStep('readme', 'done');
+                        updateIndexingStep('docs', 'active');
+                    }}
+                    if (pollCount >= 4) {{
+                        updateIndexingStep('docs', 'done');
+                        updateIndexingStep('context', 'active');
+                    }}
+                    if (pollCount >= 5) {{
+                        updateIndexingStep('context', 'done');
+                        updateIndexingStep('services', 'active');
+                    }}
+                    if (pollCount >= 6) {{
+                        updateIndexingStep('services', 'done');
+                        updateIndexingStep('commits', 'active');
+                    }}
+                    if (pollCount >= 7) {{
+                        updateIndexingStep('commits', 'done');
+                        updateIndexingStep('save', 'active');
+                    }}
+                }});
+                
+                eventSource.addEventListener('result', (e) => {{
+                    const data = JSON.parse(e.data);
+                    console.log('Workflow result:', data);
+                    eventSource.close();
+                    
+                    if (data.success) {{
+                        resolve(data);
+                    }} else {{
+                        reject(new Error(data.error || 'Workflow failed'));
+                    }}
+                }});
+                
+                eventSource.addEventListener('error', (e) => {{
+                    if (e.data) {{
+                        const data = JSON.parse(e.data);
+                        console.error('Workflow error:', data);
+                        eventSource.close();
+                        reject(new Error(data.error || 'Workflow error'));
+                    }} else {{
+                        // Connection error - might just be stream ending
+                        console.log('SSE connection closed');
+                        eventSource.close();
+                    }}
+                }});
+                
+                eventSource.onerror = (e) => {{
+                    console.error('SSE error:', e);
+                    eventSource.close();
+                    reject(new Error('Connection lost'));
+                }};
+                
+                // Timeout after 5 minutes
+                setTimeout(() => {{
+                    eventSource.close();
+                    reject(new Error('Workflow timed out'));
+                }}, 300000);
+            }});
+        }}
+        
+        // Keep pollWorkflowStatus as fallback
         async function pollWorkflowStatus(workflowId) {{
             const maxAttempts = 120;  // 2 minutes max
             const pollInterval = 1000;  // 1 second
@@ -3048,6 +3139,90 @@ async def list_workflows_endpoint(
         return {"workflows": workflows[:limit]}
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Temporal service unavailable: {e}")
+
+
+@app.get("/api/workflows/{workflow_id}/stream")
+async def stream_workflow_status(workflow_id: str):
+    """SSE endpoint for real-time workflow status updates."""
+    import asyncio
+    import json
+
+    async def event_generator():
+        """Generate SSE events for workflow status."""
+        try:
+            from .workflows.client import get_temporal_client
+
+            client = await get_temporal_client()
+            handle = client.get_workflow_handle(workflow_id)
+
+            last_status = None
+            poll_count = 0
+            max_polls = 300  # 5 minutes max
+
+            while poll_count < max_polls:
+                try:
+                    desc = await handle.describe()
+                    status = desc.status.name
+
+                    # Send status update if changed
+                    if status != last_status:
+                        event_data = {
+                            "type": "status",
+                            "workflow_id": workflow_id,
+                            "status": status,
+                            "start_time": desc.start_time.isoformat() if desc.start_time else None,
+                            "close_time": desc.close_time.isoformat() if desc.close_time else None,
+                        }
+                        yield f"event: status\ndata: {json.dumps(event_data)}\n\n"
+                        last_status = status
+
+                    # If completed or failed, get result and end stream
+                    if status in ("COMPLETED", "FAILED", "TERMINATED", "CANCELED"):
+                        try:
+                            if status == "COMPLETED":
+                                result = await handle.result()
+                                if isinstance(result, dict):
+                                    result_data = result
+                                else:
+                                    result_data = {
+                                        "success": result.success,
+                                        "workstream_id": result.workstream_id,
+                                        "workstream_name": result.workstream_name,
+                                        "notes_added": result.notes_added,
+                                        "services_indexed": result.services_indexed,
+                                        "error": result.error,
+                                    }
+                            else:
+                                result_data = {"success": False, "error": f"Workflow {status}"}
+
+                            yield f"event: result\ndata: {json.dumps(result_data)}\n\n"
+                        except Exception as e:
+                            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+                        break
+
+                    # Send heartbeat/progress
+                    progress_data = {"type": "progress", "poll_count": poll_count}
+                    yield f"event: progress\ndata: {json.dumps(progress_data)}\n\n"
+
+                except Exception as e:
+                    yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+                    break
+
+                await asyncio.sleep(1)
+                poll_count += 1
+
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 def main():
