@@ -294,6 +294,205 @@ def get_dashboard_html(current_profile: str) -> str:
             gap: 1rem;
         }}
         
+        .repo-selector {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }}
+        
+        .repo-selector select {{
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            min-width: 180px;
+        }}
+        
+        .repo-selector select option.indexed {{
+            color: #3fb950;
+        }}
+        
+        .repo-selector select option.not-indexed {{
+            color: #8b949e;
+        }}
+        
+        .index-btn {{
+            background: #238636;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }}
+        
+        .index-btn:hover {{
+            background: #2ea043;
+        }}
+        
+        .index-btn:disabled {{
+            background: #21262d;
+            color: #8b949e;
+            cursor: not-allowed;
+        }}
+        
+        .index-btn.loading {{
+            position: relative;
+            color: transparent;
+        }}
+        
+        .index-btn.loading::after {{
+            content: "";
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            top: 50%;
+            left: 50%;
+            margin: -6px 0 0 -6px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }}
+        
+        @keyframes spin {{
+            to {{ transform: rotate(360deg); }}
+        }}
+        
+        /* Indexing Status Panel */
+        .indexing-panel {{
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+            z-index: 1000;
+            overflow: hidden;
+            display: none;
+        }}
+        
+        .indexing-panel.active {{
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }}
+        
+        @keyframes slideIn {{
+            from {{ transform: translateY(20px); opacity: 0; }}
+            to {{ transform: translateY(0); opacity: 1; }}
+        }}
+        
+        .indexing-header {{
+            background: #21262d;
+            padding: 12px 16px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .indexing-header h3 {{
+            margin: 0;
+            font-size: 0.9rem;
+            color: #f0f6fc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        
+        .indexing-header .spinner {{
+            width: 14px;
+            height: 14px;
+            border: 2px solid #30363d;
+            border-top-color: #58a6ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }}
+        
+        .indexing-timer {{
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #8b949e;
+        }}
+        
+        .indexing-body {{
+            padding: 12px 16px;
+            max-height: 200px;
+            overflow-y: auto;
+        }}
+        
+        .indexing-step {{
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 6px 0;
+            font-size: 0.8rem;
+            color: #8b949e;
+        }}
+        
+        .indexing-step.active {{
+            color: #c9d1d9;
+        }}
+        
+        .indexing-step.done {{
+            color: #3fb950;
+        }}
+        
+        .indexing-step .icon {{
+            width: 16px;
+            text-align: center;
+            flex-shrink: 0;
+        }}
+        
+        .indexing-step.active .icon::after {{
+            content: '◉';
+            color: #58a6ff;
+        }}
+        
+        .indexing-step.done .icon::after {{
+            content: '✓';
+        }}
+        
+        .indexing-step.pending .icon::after {{
+            content: '○';
+            color: #6e7681;
+        }}
+        
+        .indexing-step .text {{
+            flex: 1;
+        }}
+        
+        .indexing-step .detail {{
+            font-size: 0.75rem;
+            color: #6e7681;
+            margin-top: 2px;
+        }}
+        
+        .indexing-progress {{
+            height: 3px;
+            background: #21262d;
+        }}
+        
+        .indexing-progress-bar {{
+            height: 100%;
+            background: linear-gradient(90deg, #238636, #3fb950);
+            transition: width 0.3s ease;
+        }}
+        
+        .indexing-complete {{
+            background: #238636;
+            color: #fff;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 0.85rem;
+        }}
+        
         .profile-selector select {{
             background: #21262d;
             border: 1px solid #30363d;
@@ -915,6 +1114,12 @@ def get_dashboard_html(current_profile: str) -> str:
             <span class="profile-badge">{current_profile}</span>
         </div>
         <div class="controls">
+            <div class="repo-selector">
+                <select id="repo-select" onchange="onRepoSelect(this.value)">
+                    <option value="">Select repo...</option>
+                </select>
+                <button class="index-btn" id="index-btn" onclick="indexSelectedRepo()" disabled>Index</button>
+            </div>
             <div class="profile-selector">
                 <select onchange="document.cookie = 'workstream_profile=' + this.value + ';max-age=31536000;path=/'; window.location.href='/?profile=' + this.value">
                     {profile_options}
@@ -981,6 +1186,20 @@ def get_dashboard_html(current_profile: str) -> str:
         <div class="legend-item">
             <div class="legend-dot" style="background: #3fb950"></div>
             <span>Not Connected</span>
+        </div>
+    </div>
+    
+    <!-- Indexing Status Panel -->
+    <div class="indexing-panel" id="indexing-panel">
+        <div class="indexing-progress">
+            <div class="indexing-progress-bar" id="indexing-progress-bar" style="width: 0%"></div>
+        </div>
+        <div class="indexing-header">
+            <h3><div class="spinner"></div> Indexing Repository</h3>
+            <span class="indexing-timer" id="indexing-timer">0:00</span>
+        </div>
+        <div class="indexing-body" id="indexing-steps">
+            <!-- Steps populated by JavaScript -->
         </div>
     </div>
     
@@ -1543,8 +1762,243 @@ def get_dashboard_html(current_profile: str) -> str:
             }}
         }});
         
+        // ============== Repo Selector ==============
+        let reposData = [];
+        let selectedRepoPath = null;
+        
+        async function loadRepos() {{
+            try {{
+                const response = await fetch('/api/repos?profile={current_profile}');
+                reposData = await response.json();
+                populateRepoDropdown();
+            }} catch (e) {{
+                console.error('Failed to load repos:', e);
+            }}
+        }}
+        
+        function populateRepoDropdown() {{
+            const select = document.getElementById('repo-select');
+            select.innerHTML = '<option value="">Select repo...</option>';
+            
+            // Get active repo from cookie
+            const activeRepo = getCookie('active_repo');
+            
+            reposData.forEach(repo => {{
+                const option = document.createElement('option');
+                option.value = repo.path;
+                option.textContent = repo.indexed ? `✓ ${{repo.name}}` : repo.name;
+                option.className = repo.indexed ? 'indexed' : 'not-indexed';
+                if (repo.path === activeRepo) {{
+                    option.selected = true;
+                    selectedRepoPath = repo.path;
+                    updateIndexButton(repo);
+                }}
+                select.appendChild(option);
+            }});
+        }}
+        
+        function getCookie(name) {{
+            const value = `; ${{document.cookie}}`;
+            const parts = value.split(`; ${{name}}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }}
+        
+        function onRepoSelect(path) {{
+            selectedRepoPath = path;
+            const repo = reposData.find(r => r.path === path);
+            updateIndexButton(repo);
+            
+            // Save to cookie
+            if (path) {{
+                document.cookie = `active_repo=${{path}};max-age=31536000;path=/`;
+            }}
+            
+            // If indexed, highlight in graph and show detail panel
+            if (repo && repo.indexed && repo.workstream_id) {{
+                const ws = workstreamData[repo.workstream_id];
+                if (ws) {{
+                    showWorkstreamPanel(ws);
+                    highlightNode(repo.workstream_id);
+                }}
+            }}
+        }}
+        
+        function updateIndexButton(repo) {{
+            const btn = document.getElementById('index-btn');
+            if (!repo) {{
+                btn.disabled = true;
+                btn.textContent = 'Index';
+            }} else if (repo.indexed) {{
+                btn.disabled = false;
+                btn.textContent = 'Re-index';
+            }} else {{
+                btn.disabled = false;
+                btn.textContent = 'Index';
+            }}
+        }}
+        
+        function highlightNode(workstreamId) {{
+            // Update node visuals
+            nodeGroup.selectAll('circle')
+                .attr('stroke', d => d.id === workstreamId ? '#58a6ff' : 'none')
+                .attr('stroke-width', d => d.id === workstreamId ? 3 : 0);
+        }}
+        
+        // ============== Indexing Status Panel ==============
+        let indexingStartTime = null;
+        let indexingTimerInterval = null;
+        
+        const INDEXING_STEPS = [
+            {{ id: 'init', label: 'Initializing', detail: 'Preparing to index repository' }},
+            {{ id: 'scan', label: 'Scanning Files', detail: 'Finding documentation and config files' }},
+            {{ id: 'readme', label: 'Processing README', detail: 'Extracting project overview' }},
+            {{ id: 'docs', label: 'Indexing Documentation', detail: 'Processing docs folder' }},
+            {{ id: 'context', label: 'Extracting Context', detail: 'Build system, CI/CD, architecture' }},
+            {{ id: 'services', label: 'Detecting Services', detail: 'Scanning for monorepo services' }},
+            {{ id: 'commits', label: 'Analyzing Commits', detail: 'Recent git history' }},
+            {{ id: 'save', label: 'Saving Workstream', detail: 'Creating workstream record' }},
+        ];
+        
+        function showIndexingPanel(repoName) {{
+            const panel = document.getElementById('indexing-panel');
+            const stepsContainer = document.getElementById('indexing-steps');
+            
+            // Reset and show panel
+            panel.classList.add('active');
+            document.getElementById('indexing-progress-bar').style.width = '0%';
+            document.getElementById('indexing-timer').textContent = '0:00';
+            
+            // Populate steps
+            stepsContainer.innerHTML = INDEXING_STEPS.map((step, i) => `
+                <div class="indexing-step pending" id="step-${{step.id}}">
+                    <span class="icon"></span>
+                    <div class="text">
+                        <div>${{step.label}}</div>
+                        <div class="detail">${{step.detail}}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Start timer
+            indexingStartTime = Date.now();
+            indexingTimerInterval = setInterval(updateIndexingTimer, 1000);
+            
+            // Start first step
+            updateIndexingStep('init', 'active');
+        }}
+        
+        function updateIndexingTimer() {{
+            const elapsed = Math.floor((Date.now() - indexingStartTime) / 1000);
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            document.getElementById('indexing-timer').textContent = `${{mins}}:${{secs.toString().padStart(2, '0')}}`;
+        }}
+        
+        function updateIndexingStep(stepId, status) {{
+            const stepEl = document.getElementById(`step-${{stepId}}`);
+            if (!stepEl) return;
+            
+            // Update step status
+            stepEl.className = `indexing-step ${{status}}`;
+            
+            // Update progress bar
+            const stepIndex = INDEXING_STEPS.findIndex(s => s.id === stepId);
+            const progress = ((stepIndex + (status === 'done' ? 1 : 0.5)) / INDEXING_STEPS.length) * 100;
+            document.getElementById('indexing-progress-bar').style.width = `${{progress}}%`;
+            
+            // Auto-scroll to show current step
+            stepEl.scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+        }}
+        
+        function hideIndexingPanel(success = true) {{
+            clearInterval(indexingTimerInterval);
+            
+            const panel = document.getElementById('indexing-panel');
+            const elapsed = Math.floor((Date.now() - indexingStartTime) / 1000);
+            
+            if (success) {{
+                // Show completion state briefly
+                document.getElementById('indexing-progress-bar').style.width = '100%';
+                const header = panel.querySelector('.indexing-header');
+                header.innerHTML = `<h3>✓ Indexing Complete</h3><span class="indexing-timer">${{elapsed}}s</span>`;
+                header.querySelector('h3').style.color = '#3fb950';
+                
+                setTimeout(() => {{
+                    panel.classList.remove('active');
+                }}, 2000);
+            }} else {{
+                panel.classList.remove('active');
+            }}
+        }}
+        
+        async function indexSelectedRepo() {{
+            if (!selectedRepoPath) return;
+            
+            const btn = document.getElementById('index-btn');
+            const repoName = selectedRepoPath.split('/').pop();
+            
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            // Show indexing panel
+            showIndexingPanel(repoName);
+            
+            try {{
+                // Simulate step progression (actual indexing happens server-side)
+                const stepTimings = [300, 500, 800, 600, 700, 500, 400, 300];
+                let stepIndex = 0;
+                
+                const progressInterval = setInterval(() => {{
+                    if (stepIndex > 0) {{
+                        updateIndexingStep(INDEXING_STEPS[stepIndex - 1].id, 'done');
+                    }}
+                    if (stepIndex < INDEXING_STEPS.length) {{
+                        updateIndexingStep(INDEXING_STEPS[stepIndex].id, 'active');
+                        stepIndex++;
+                    }}
+                }}, 400);
+                
+                const response = await fetch('/api/repos/index?profile={current_profile}', {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ path: selectedRepoPath }})
+                }});
+                
+                clearInterval(progressInterval);
+                
+                // Mark all steps done
+                INDEXING_STEPS.forEach(step => updateIndexingStep(step.id, 'done'));
+                
+                if (!response.ok) {{
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to index');
+                }}
+                
+                const ws = await response.json();
+                
+                // Show success
+                hideIndexingPanel(true);
+                
+                // Reload repos to update indexed status
+                await loadRepos();
+                
+                // Refresh page to show new workstream
+                setTimeout(() => location.reload(), 2000);
+                
+            }} catch (e) {{
+                console.error('Failed to index repo:', e);
+                hideIndexingPanel(false);
+                alert('Failed to index repository: ' + e.message);
+            }} finally {{
+                btn.classList.remove('loading');
+                updateIndexButton(reposData.find(r => r.path === selectedRepoPath));
+            }}
+        }}
+        
         document.addEventListener('DOMContentLoaded', () => {{
             initGraph();
+            loadRepos();
             observer.observe(document.getElementById('data-container'), {{ childList: true, subtree: true }});
         }});
     </script>
@@ -2125,6 +2579,249 @@ async def get_dependents(
 
     dependents = await storage.get_dependents(workstream_id)
     return [ws.to_dict() for ws in dependents]
+
+
+# ============== Repo Scanner API ==============
+
+# Configurable dev directory (can be overridden via env var)
+DEV_DIRECTORY = Path(os.environ.get("MEM_DEV_DIR", os.path.expanduser("~/dev")))
+
+
+class RepoInfo(BaseModel):
+    """Information about a local repository."""
+    name: str
+    path: str
+    indexed: bool = False
+    workstream_id: Optional[str] = None
+
+
+@app.get("/api/repos")
+async def list_repos(profile: str = Query(default=DEFAULT_PROFILE)) -> list[RepoInfo]:
+    """List all git repositories in the dev directory."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+    
+    repos = []
+    
+    if not DEV_DIRECTORY.exists():
+        return repos
+    
+    # Get all indexed workstreams to check which repos are already indexed
+    # Match by repo name since paths may differ (container vs host)
+    workstreams = await storage.list()
+    indexed_repos = {}  # name -> workstream_id
+    for ws in workstreams:
+        # Check metadata for repo_path
+        meta = ws.metadata
+        repo_path = None
+        if hasattr(meta, 'extra') and meta.extra:
+            repo_path = meta.extra.get("repo_path")
+        elif hasattr(meta, '__dict__'):
+            repo_path = getattr(meta, 'repo_path', None) or meta.__dict__.get("repo_path")
+        if repo_path:
+            # Extract repo name from path
+            repo_name = Path(repo_path).name
+            indexed_repos[repo_name] = ws.id
+    
+    # Scan dev directory for git repos
+    for item in DEV_DIRECTORY.iterdir():
+        if item.is_dir() and not item.name.startswith("."):
+            git_dir = item / ".git"
+            if git_dir.exists():
+                resolved_path = str(item.resolve())
+                repos.append(RepoInfo(
+                    name=item.name,
+                    path=resolved_path,
+                    indexed=item.name in indexed_repos,
+                    workstream_id=indexed_repos.get(item.name),
+                ))
+    
+    # Sort by name
+    repos.sort(key=lambda r: r.name.lower())
+    return repos
+
+
+@app.post("/api/repos/index")
+async def index_repo(
+    path: str = Body(..., embed=True),
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Index a local repository and create or update a workstream."""
+    from .indexers.local_repo_indexer import LocalRepoIndexer
+    from .server import extract_project_context
+    from .types import UpdateWorkstreamRequest
+    
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+    
+    repo_path = Path(path).expanduser().resolve()
+    
+    # Handle path mapping: if path doesn't exist, try mapping common host paths to container paths
+    if not repo_path.exists():
+        # Common mappings: /Users/*/dev/* -> /host-dev/*
+        path_str = str(repo_path)
+        if "/dev/" in path_str:
+            # Extract repo name and try container path
+            repo_name = repo_path.name
+            container_path = DEV_DIRECTORY / repo_name
+            if container_path.exists():
+                repo_path = container_path
+    
+    repo_path_str = str(repo_path)
+    
+    if not repo_path.exists():
+        raise HTTPException(status_code=404, detail=f"Path does not exist: {repo_path}")
+    
+    if not (repo_path / ".git").exists():
+        raise HTTPException(status_code=400, detail=f"Not a git repository: {repo_path}")
+    
+    # Check for existing workstream with same repo_path
+    existing_workstream = None
+    all_workstreams = await storage.list()
+    for ws in all_workstreams:
+        ws_repo_path = None
+        if hasattr(ws.metadata, 'extra') and ws.metadata.extra:
+            ws_repo_path = ws.metadata.extra.get("repo_path")
+        elif hasattr(ws.metadata, '__dict__'):
+            ws_repo_path = ws.metadata.__dict__.get("repo_path")
+        if ws_repo_path == repo_path_str:
+            existing_workstream = ws
+            break
+    
+    try:
+        indexer = LocalRepoIndexer(str(repo_path))
+        ws_request, notes = await indexer.index_repository()
+        
+        # Extract and add project context to metadata
+        context = extract_project_context(repo_path)
+        ws_request.metadata["is_monorepo"] = context.get("is_monorepo", False)
+        ws_request.metadata["commands"] = context.get("commands", {})
+        ws_request.metadata["setup_instructions"] = context.get("setup", [])
+        ws_request.metadata["project_type"] = context.get("project_type", "unknown")
+        ws_request.metadata["build_system"] = context.get("build_system", [])
+        ws_request.metadata["architectures"] = context.get("architectures", [])
+        ws_request.metadata["languages"] = context.get("languages", [])
+        ws_request.metadata["ci_cd"] = context.get("ci_cd", [])
+        ws_request.metadata["deployment"] = context.get("deployment", {})
+        if context.get("services"):
+            ws_request.metadata["services"] = context["services"]
+        
+        # Create or update workstream
+        if existing_workstream:
+            # Update existing workstream
+            update_request = UpdateWorkstreamRequest(
+                id=existing_workstream.id,
+                name=ws_request.name,
+                summary=ws_request.summary,
+                tags=ws_request.tags,
+                metadata=ws_request.metadata,
+            )
+            workstream = await storage.update(update_request)
+        else:
+            # Create new workstream
+            workstream = await storage.create(ws_request)
+        
+        # Add notes (only for new workstreams to avoid duplicates)
+        if not existing_workstream:
+            for note in notes:
+                await storage.add_note(
+                    workstream.id,
+                    note["content"],
+                    note.get("category", "CONTEXT"),
+                )
+        
+        # Create or update child workstreams for monorepo services
+        if context.get("is_monorepo") and context.get("services"):
+            for svc_name, svc_info in context["services"].items():
+                svc_path = repo_path / svc_info["path"]
+                svc_path_str = str(svc_path)
+                
+                # Check for existing service workstream
+                existing_svc = None
+                for ws in all_workstreams:
+                    ws_repo_path = None
+                    if hasattr(ws.metadata, 'extra') and ws.metadata.extra:
+                        ws_repo_path = ws.metadata.extra.get("repo_path")
+                    elif hasattr(ws.metadata, '__dict__'):
+                        ws_repo_path = ws.metadata.__dict__.get("repo_path")
+                    if ws_repo_path == svc_path_str:
+                        existing_svc = ws
+                        break
+                
+                svc_metadata = {
+                    "service_name": svc_name,
+                    "service_type": svc_info["type"],
+                    "service_path": svc_info["path"],
+                    "commands": svc_info.get("commands", {}),
+                    "repo_path": svc_path_str,
+                }
+                
+                if existing_svc:
+                    # Update existing service workstream
+                    svc_update = UpdateWorkstreamRequest(
+                        id=existing_svc.id,
+                        name=f"Service: {svc_name}",
+                        summary=f"Monorepo service - {svc_info['type']} module at {svc_info['path']}",
+                        tags=["service", svc_info["type"], svc_name],
+                        parent_id=workstream.id,
+                        metadata=svc_metadata,
+                    )
+                    svc_ws = await storage.update(svc_update)
+                else:
+                    # Create new service workstream
+                    svc_request = CreateWorkstreamRequest(
+                        name=f"Service: {svc_name}",
+                        summary=f"Monorepo service - {svc_info['type']} module at {svc_info['path']}",
+                        tags=["service", svc_info["type"], svc_name],
+                        parent_id=workstream.id,
+                        metadata=svc_metadata,
+                    )
+                    svc_ws = await storage.create(svc_request)
+                    
+                    # Add README note if exists (only for new services)
+                    readme_file = svc_path / "README.md"
+                    if readme_file.exists():
+                        try:
+                            readme_content = readme_file.read_text()[:3000]
+                            await storage.add_note(svc_ws.id, f"[README]\n{readme_content}", "CONTEXT")
+                        except Exception:
+                            pass
+        
+        # Reload to get notes
+        workstream = await storage.get(workstream.id)
+        
+        return workstream.to_dict()
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to index repository: {e}")
+
+
+@app.get("/api/repos/active")
+async def get_active_repo(
+    active_repo: Optional[str] = Cookie(default=None),
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Get the currently active repository."""
+    return {"active_repo": active_repo}
+
+
+@app.post("/api/repos/active")
+async def set_active_repo(
+    response: Response,
+    path: str = Body(..., embed=True),
+):
+    """Set the active repository (stored in cookie)."""
+    response.set_cookie(
+        key="active_repo",
+        value=path,
+        max_age=60 * 60 * 24 * 365,  # 1 year
+        httponly=False,  # Allow JS access
+    )
+    return {"active_repo": path}
 
 
 def main():

@@ -9,9 +9,13 @@ services:
     volumes:
       # Mount local data for development (persists locally)
       - ./data:/app/data
+      # Mount dev directory for repo scanning (read-only)
+      # NOTE: Update this path to match your dev directory
+      - /Users/chokevin/dev:/host-dev:ro
     environment:
       - MEM_PROFILE=test
       - MEM_DATA_DIR=/app/data
+      - MEM_DEV_DIR=/host-dev
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/api/workstreams', timeout=5)"]
