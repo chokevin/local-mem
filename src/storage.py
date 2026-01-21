@@ -256,6 +256,63 @@ class WorkstreamStorage:
             return None
         return workstream.notes
 
+    async def update_note(
+        self, id: str, note_index: int, content: str, category: str | None = None
+    ) -> Optional[Workstream]:
+        """Update a note at a specific index.
+        
+        Args:
+            id: Workstream ID
+            note_index: Index of the note to update (0-based)
+            content: New note content
+            category: Optional category (decision, blocker, changed, context, tried, resume, other)
+        """
+        from datetime import datetime
+
+        workstream = self._workstreams.get(id)
+        if not workstream:
+            return None
+
+        if note_index < 0 or note_index >= len(workstream.notes):
+            return None
+
+        # Format the updated note with timestamp and optional category
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        if category and category != "other":
+            formatted_note = f"[{timestamp}] [{category.upper()}] {content}"
+        else:
+            formatted_note = f"[{timestamp}] {content}"
+        
+        workstream.notes[note_index] = formatted_note
+        workstream.updated_at = datetime.now().isoformat()
+
+        self._workstreams[workstream.id] = workstream
+        await self._save()
+        return workstream
+
+    async def delete_note(self, id: str, note_index: int) -> Optional[Workstream]:
+        """Delete a note at a specific index.
+        
+        Args:
+            id: Workstream ID
+            note_index: Index of the note to delete (0-based)
+        """
+        from datetime import datetime
+
+        workstream = self._workstreams.get(id)
+        if not workstream:
+            return None
+
+        if note_index < 0 or note_index >= len(workstream.notes):
+            return None
+
+        del workstream.notes[note_index]
+        workstream.updated_at = datetime.now().isoformat()
+
+        self._workstreams[workstream.id] = workstream
+        await self._save()
+        return workstream
+
     async def set_parent(self, id: str, parent_id: str | None) -> Optional[Workstream]:
         """Set or clear the parent of a workstream."""
         from datetime import datetime
@@ -304,3 +361,113 @@ class WorkstreamStorage:
         from .heuristics import suggest_relationships
 
         return suggest_relationships(list(self._workstreams.values()))
+
+    # Relationship management methods
+    RELATIONSHIP_TYPES = ("depends_on", "blocks", "related_to")
+
+    async def add_relationship(
+        self, ws_id: str, target_id: str, relationship_type: str
+    ) -> Optional[Workstream]:
+        """Add a relationship from one workstream to another.
+        
+        Args:
+            ws_id: Source workstream ID
+            target_id: Target workstream ID
+            relationship_type: One of 'depends_on', 'blocks', 'related_to'
+        """
+        from datetime import datetime
+
+        if relationship_type not in self.RELATIONSHIP_TYPES:
+            return None
+
+        workstream = self._workstreams.get(ws_id)
+        if not workstream:
+            return None
+
+        # Validate target exists
+        if target_id not in self._workstreams:
+            return None
+
+        # Prevent self-reference
+        if ws_id == target_id:
+            return None
+
+        # Get the relationship list
+        rel_list = getattr(workstream, relationship_type)
+        if target_id not in rel_list:
+            rel_list.append(target_id)
+            workstream.updated_at = datetime.now().isoformat()
+            self._workstreams[workstream.id] = workstream
+            await self._save()
+
+        return workstream
+
+    async def remove_relationship(
+        self, ws_id: str, target_id: str, relationship_type: str
+    ) -> Optional[Workstream]:
+        """Remove a relationship from one workstream to another.
+        
+        Args:
+            ws_id: Source workstream ID
+            target_id: Target workstream ID
+            relationship_type: One of 'depends_on', 'blocks', 'related_to'
+        """
+        from datetime import datetime
+
+        if relationship_type not in self.RELATIONSHIP_TYPES:
+            return None
+
+        workstream = self._workstreams.get(ws_id)
+        if not workstream:
+            return None
+
+        # Get the relationship list
+        rel_list = getattr(workstream, relationship_type)
+        if target_id in rel_list:
+            rel_list.remove(target_id)
+            workstream.updated_at = datetime.now().isoformat()
+            self._workstreams[workstream.id] = workstream
+            await self._save()
+
+        return workstream
+
+    async def get_relationships(self, ws_id: str) -> Optional[dict]:
+        """Get all relationships for a workstream.
+        
+        Returns a dict with depends_on, blocks, and related_to lists,
+        plus reverse relationships (blocked_by, dependents).
+        """
+        workstream = self._workstreams.get(ws_id)
+        if not workstream:
+            return None
+
+        # Get reverse relationships
+        blocked_by = []
+        dependents = []
+        related_from = []
+
+        for ws in self._workstreams.values():
+            if ws.id == ws_id:
+                continue
+            if ws_id in ws.blocks:
+                blocked_by.append(ws.id)
+            if ws_id in ws.depends_on:
+                dependents.append(ws.id)
+            if ws_id in ws.related_to:
+                related_from.append(ws.id)
+
+        return {
+            "depends_on": workstream.depends_on,
+            "blocks": workstream.blocks,
+            "related_to": workstream.related_to,
+            "blocked_by": blocked_by,
+            "dependents": dependents,
+            "related_from": related_from,
+        }
+
+    async def get_dependents(self, ws_id: str) -> list[Workstream]:
+        """Get all workstreams that depend on this one."""
+        return [
+            ws for ws in self._workstreams.values()
+            if ws_id in ws.depends_on
+        ]

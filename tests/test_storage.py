@@ -397,6 +397,93 @@ async def test_add_note_nonexistent(storage: WorkstreamStorage) -> None:
     assert result is None
 
 
+@pytest.mark.asyncio
+async def test_update_note(storage: WorkstreamStorage) -> None:
+    """Test updating a note."""
+    workstream = await storage.create(
+        CreateWorkstreamRequest(name="Test", summary="Test project")
+    )
+
+    # Add some notes
+    await storage.add_note(workstream.id, "First note")
+    await storage.add_note(workstream.id, "Second note")
+
+    # Update the first note
+    result = await storage.update_note(workstream.id, 0, "Updated first note", "decision")
+
+    assert result is not None
+    assert len(result.notes) == 2
+    assert "[DECISION]" in result.notes[0]
+    assert "Updated first note" in result.notes[0]
+
+
+@pytest.mark.asyncio
+async def test_update_note_nonexistent_workstream(storage: WorkstreamStorage) -> None:
+    """Test updating note in nonexistent workstream."""
+    result = await storage.update_note("nonexistent-id", 0, "content")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_update_note_invalid_index(storage: WorkstreamStorage) -> None:
+    """Test updating note with invalid index."""
+    workstream = await storage.create(
+        CreateWorkstreamRequest(name="Test", summary="Test project")
+    )
+    await storage.add_note(workstream.id, "First note")
+
+    # Try to update with out-of-range index
+    result = await storage.update_note(workstream.id, 5, "content")
+    assert result is None
+
+    result = await storage.update_note(workstream.id, -1, "content")
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_delete_note(storage: WorkstreamStorage) -> None:
+    """Test deleting a note."""
+    workstream = await storage.create(
+        CreateWorkstreamRequest(name="Test", summary="Test project")
+    )
+
+    # Add some notes
+    await storage.add_note(workstream.id, "First note")
+    await storage.add_note(workstream.id, "Second note")
+    await storage.add_note(workstream.id, "Third note")
+
+    # Delete the middle note
+    result = await storage.delete_note(workstream.id, 1)
+
+    assert result is not None
+    assert len(result.notes) == 2
+    assert "First note" in result.notes[0]
+    assert "Third note" in result.notes[1]
+
+
+@pytest.mark.asyncio
+async def test_delete_note_nonexistent_workstream(storage: WorkstreamStorage) -> None:
+    """Test deleting note from nonexistent workstream."""
+    result = await storage.delete_note("nonexistent-id", 0)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_delete_note_invalid_index(storage: WorkstreamStorage) -> None:
+    """Test deleting note with invalid index."""
+    workstream = await storage.create(
+        CreateWorkstreamRequest(name="Test", summary="Test project")
+    )
+    await storage.add_note(workstream.id, "First note")
+
+    # Try to delete with out-of-range index
+    result = await storage.delete_note(workstream.id, 5)
+    assert result is None
+
+    result = await storage.delete_note(workstream.id, -1)
+    assert result is None
+
+
 # Hierarchy tests
 
 

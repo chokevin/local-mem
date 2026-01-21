@@ -45,6 +45,9 @@ class WorkstreamResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     notes: list[str] = Field(default_factory=list)
     parent_id: str | None = Field(default=None, alias="parentId")
+    depends_on: list[str] = Field(default_factory=list, alias="dependsOn")
+    blocks: list[str] = Field(default_factory=list)
+    related_to: list[str] = Field(default_factory=list, alias="relatedTo")
     created_at: str = Field(alias="createdAt")
     updated_at: str = Field(alias="updatedAt")
 
@@ -79,6 +82,16 @@ class AddNoteModel(BaseModel):
     """Pydantic model for adding a note."""
 
     note: str = Field(..., min_length=1, description="Note content")
+    category: str | None = Field(
+        default=None,
+        description="Note category (decision, blocker, changed, context, tried, resume, other)",
+    )
+
+
+class UpdateNoteModel(BaseModel):
+    """Pydantic model for updating a note."""
+
+    content: str = Field(..., min_length=1, description="New note content")
     category: str | None = Field(
         default=None,
         description="Note category (decision, blocker, changed, context, tried, resume, other)",
@@ -145,6 +158,33 @@ class InstantiateTemplateModel(BaseModel):
     parent_id: str | None = Field(default=None, alias="parentId", description="Parent workstream ID")
 
     model_config = {"populate_by_name": True}
+
+
+class AddRelationshipModel(BaseModel):
+    """Pydantic model for adding a relationship."""
+
+    target_id: str = Field(..., alias="targetId", description="Target workstream ID")
+    relationship_type: str = Field(
+        ...,
+        alias="relationshipType",
+        description="Relationship type: depends_on, blocks, or related_to",
+    )
+
+    model_config = {"populate_by_name": True}
+
+
+class RelationshipsResponse(BaseModel):
+    """Pydantic model for relationships response."""
+
+    depends_on: list[str] = Field(default_factory=list, alias="dependsOn")
+    blocks: list[str] = Field(default_factory=list)
+    related_to: list[str] = Field(default_factory=list, alias="relatedTo")
+    blocked_by: list[str] = Field(default_factory=list, alias="blockedBy")
+    dependents: list[str] = Field(default_factory=list)
+    related_from: list[str] = Field(default_factory=list, alias="relatedFrom")
+
+    model_config = {"populate_by_name": True}
+
 
 # Cookie name for profile persistence
 PROFILE_COOKIE = "workstream_profile"
@@ -1735,6 +1775,59 @@ async def add_note(
     return ws.to_dict()
 
 
+@app.get("/api/workstreams/{workstream_id}/notes")
+async def get_notes(
+    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Get all notes for a workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    notes = await storage.get_notes(workstream_id)
+    if notes is None:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+    return {"notes": [{"index": i, "content": note} for i, note in enumerate(notes)]}
+
+
+@app.put("/api/workstreams/{workstream_id}/notes/{note_index}", response_model=WorkstreamResponse)
+async def update_note(
+    workstream_id: str,
+    note_index: int,
+    data: UpdateNoteModel,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Update a note at a specific index."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    ws = await storage.update_note(workstream_id, note_index, data.content, data.category)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream or note not found")
+    return ws.to_dict()
+
+
+@app.delete("/api/workstreams/{workstream_id}/notes/{note_index}", response_model=WorkstreamResponse)
+async def delete_note(
+    workstream_id: str,
+    note_index: int,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Delete a note at a specific index."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    ws = await storage.delete_note(workstream_id, note_index)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream or note not found")
+    return ws.to_dict()
+
+
 @app.get("/api/workstreams/{workstream_id}/children")
 async def get_children(
     workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
@@ -1936,6 +2029,102 @@ async def search_workstreams(
         total=len(results),
         results=[SearchResult(**r) for r in results],
     )
+
+
+# Relationship endpoints
+@app.get("/api/workstreams/{workstream_id}/relationships", response_model=RelationshipsResponse)
+async def get_relationships(
+    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Get all relationships for a workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    relationships = await storage.get_relationships(workstream_id)
+    if relationships is None:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+    return relationships
+
+
+@app.post("/api/workstreams/{workstream_id}/relationships", response_model=WorkstreamResponse)
+async def add_relationship(
+    workstream_id: str,
+    data: AddRelationshipModel,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Add a relationship to a workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    # Validate relationship type
+    if data.relationship_type not in storage.RELATIONSHIP_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid relationship type. Must be one of: {', '.join(storage.RELATIONSHIP_TYPES)}",
+        )
+
+    # Validate target exists
+    target = await storage.get(data.target_id)
+    if not target:
+        raise HTTPException(status_code=400, detail="Target workstream not found")
+
+    # Prevent self-reference
+    if workstream_id == data.target_id:
+        raise HTTPException(status_code=400, detail="Cannot create relationship to self")
+
+    ws = await storage.add_relationship(workstream_id, data.target_id, data.relationship_type)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+    return ws.to_dict()
+
+
+@app.delete("/api/workstreams/{workstream_id}/relationships/{relationship_type}/{target_id}")
+async def remove_relationship(
+    workstream_id: str,
+    relationship_type: str,
+    target_id: str,
+    profile: str = Query(default=DEFAULT_PROFILE),
+):
+    """Remove a relationship from a workstream."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    # Validate relationship type
+    if relationship_type not in storage.RELATIONSHIP_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid relationship type. Must be one of: {', '.join(storage.RELATIONSHIP_TYPES)}",
+        )
+
+    ws = await storage.remove_relationship(workstream_id, target_id, relationship_type)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+    return {"message": "Relationship removed successfully"}
+
+
+@app.get("/api/workstreams/{workstream_id}/dependents")
+async def get_dependents(
+    workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)
+):
+    """Get all workstreams that depend on this one."""
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    # Validate workstream exists
+    ws = await storage.get(workstream_id)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+
+    dependents = await storage.get_dependents(workstream_id)
+    return [ws.to_dict() for ws in dependents]
 
 
 def main():
