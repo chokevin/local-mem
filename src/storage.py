@@ -256,6 +256,63 @@ class WorkstreamStorage:
             return None
         return workstream.notes
 
+    async def update_note(
+        self, id: str, note_index: int, content: str, category: str | None = None
+    ) -> Optional[Workstream]:
+        """Update a note at a specific index.
+        
+        Args:
+            id: Workstream ID
+            note_index: Index of the note to update (0-based)
+            content: New note content
+            category: Optional category (decision, blocker, changed, context, tried, resume, other)
+        """
+        from datetime import datetime
+
+        workstream = self._workstreams.get(id)
+        if not workstream:
+            return None
+
+        if note_index < 0 or note_index >= len(workstream.notes):
+            return None
+
+        # Format the updated note with timestamp and optional category
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        if category and category != "other":
+            formatted_note = f"[{timestamp}] [{category.upper()}] {content}"
+        else:
+            formatted_note = f"[{timestamp}] {content}"
+        
+        workstream.notes[note_index] = formatted_note
+        workstream.updated_at = datetime.now().isoformat()
+
+        self._workstreams[workstream.id] = workstream
+        await self._save()
+        return workstream
+
+    async def delete_note(self, id: str, note_index: int) -> Optional[Workstream]:
+        """Delete a note at a specific index.
+        
+        Args:
+            id: Workstream ID
+            note_index: Index of the note to delete (0-based)
+        """
+        from datetime import datetime
+
+        workstream = self._workstreams.get(id)
+        if not workstream:
+            return None
+
+        if note_index < 0 or note_index >= len(workstream.notes):
+            return None
+
+        del workstream.notes[note_index]
+        workstream.updated_at = datetime.now().isoformat()
+
+        self._workstreams[workstream.id] = workstream
+        await self._save()
+        return workstream
+
     async def set_parent(self, id: str, parent_id: str | None) -> Optional[Workstream]:
         """Set or clear the parent of a workstream."""
         from datetime import datetime
