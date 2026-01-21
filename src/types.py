@@ -54,6 +54,10 @@ class Workstream:
     metadata: WorkstreamMetadata = field(default_factory=WorkstreamMetadata)
     notes: list[str] = field(default_factory=list)  # Rich context notes
     parent_id: Optional[str] = None  # Parent workstream ID for hierarchy
+    # Peer relationships
+    depends_on: list[str] = field(default_factory=list)  # Workstream IDs this depends on
+    blocks: list[str] = field(default_factory=list)  # Workstream IDs this blocks
+    related_to: list[str] = field(default_factory=list)  # Loosely related workstreams
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
 
@@ -70,6 +74,12 @@ class Workstream:
         }
         if self.parent_id:
             result["parentId"] = self.parent_id
+        if self.depends_on:
+            result["dependsOn"] = self.depends_on
+        if self.blocks:
+            result["blocks"] = self.blocks
+        if self.related_to:
+            result["relatedTo"] = self.related_to
         return result
 
     @classmethod
@@ -82,6 +92,9 @@ class Workstream:
             metadata=WorkstreamMetadata.from_dict(data.get("metadata", {})),
             notes=data.get("notes", []),
             parent_id=data.get("parentId"),
+            depends_on=data.get("dependsOn", []),
+            blocks=data.get("blocks", []),
+            related_to=data.get("relatedTo", []),
             created_at=data.get("createdAt", datetime.now().isoformat()),
             updated_at=data.get("updatedAt", datetime.now().isoformat()),
         )
