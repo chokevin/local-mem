@@ -902,6 +902,26 @@ def get_dashboard_html(current_profile: str) -> str:
         .todo-text {{
             font-size: 0.85rem;
             color: #c9d1d9;
+            flex: 1;
+        }}
+        
+        .todo-delete {{
+            background: transparent;
+            border: none;
+            color: #6e7681;
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0 0.25rem;
+            opacity: 0;
+            transition: opacity 0.2s, color 0.2s;
+        }}
+        
+        .todo-item:hover .todo-delete {{
+            opacity: 1;
+        }}
+        
+        .todo-delete:hover {{
+            color: #f85149;
         }}
         
         .empty-section {{
@@ -2890,9 +2910,9 @@ def get_dashboard_html(current_profile: str) -> str:
             const container = document.getElementById('focus-todos');
             const todos = [];
             
-            // Parse notes for TODO patterns
+            // Parse notes for TODO patterns, tracking note index for deletion
             if (ws.notes && ws.notes.length > 0) {{
-                ws.notes.forEach(note => {{
+                ws.notes.forEach((note, noteIndex) => {{
                     // Notes can be strings or objects with content
                     const content = typeof note === 'string' ? note : (note.content || '');
                     // Match TODO, FIXME, [ ], [x] patterns
@@ -2900,20 +2920,43 @@ def get_dashboard_html(current_profile: str) -> str:
                     todoMatches.forEach(match => {{
                         const isDone = match.includes('[x]');
                         const text = match.replace(/^(TODO|FIXME|\\[ \\]|\\[x\\])\\s*:?\\s*/i, '');
-                        todos.push({{ text, done: isDone }});
+                        todos.push({{ text, done: isDone, noteIndex }});
                     }});
                 }});
             }}
             
             if (todos.length > 0) {{
-                container.innerHTML = todos.map(todo => `
+                container.innerHTML = todos.map((todo, idx) => `
                     <div class="todo-item">
                         <span class="todo-checkbox">${{todo.done ? '☑' : '☐'}}</span>
                         <span class="todo-text">${{escapeHtml(todo.text)}}</span>
+                        <button class="todo-delete" onclick="deleteTodo(${{todo.noteIndex}})" title="Delete">×</button>
                     </div>
                 `).join('');
             }} else {{
                 container.innerHTML = '<div class="empty-section">No TODOs found in notes</div>';
+            }}
+        }}
+        
+        async function deleteTodo(noteIndex) {{
+            if (!currentFocusedWsId) return;
+            
+            try {{
+                const response = await fetch(`/api/workstreams/${{currentFocusedWsId}}/notes/${{noteIndex}}?profile={current_profile}`, {{
+                    method: 'DELETE'
+                }});
+                
+                if (response.ok) {{
+                    // Refresh the workstream data and TODOs
+                    const wsResponse = await fetch(`/api/workstreams/${{currentFocusedWsId}}?profile={current_profile}`);
+                    const ws = await wsResponse.json();
+                    workstreamData[currentFocusedWsId] = ws;
+                    extractTodosFromNotes(ws);
+                }} else {{
+                    console.error('Failed to delete TODO');
+                }}
+            }} catch (e) {{
+                console.error('Failed to delete TODO:', e);
             }}
         }}
         
