@@ -700,6 +700,72 @@ def get_dashboard_html(current_profile: str) -> str:
             gap: 0.5rem;
         }}
         
+        .focus-section-title .add-btn {{
+            margin-left: auto;
+            background: #238636;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            width: 20px;
+            height: 20px;
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }}
+        
+        .focus-section-title .add-btn:hover {{
+            background: #2ea043;
+        }}
+        
+        .todo-add-form {{
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem;
+            background: rgba(33, 38, 45, 0.8);
+            border-radius: 6px;
+            border: 1px solid #30363d;
+        }}
+        
+        .todo-add-form input {{
+            flex: 1;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            color: #c9d1d9;
+            padding: 0.4rem 0.6rem;
+            font-size: 0.85rem;
+        }}
+        
+        .todo-add-form input:focus {{
+            outline: none;
+            border-color: #58a6ff;
+        }}
+        
+        .todo-add-form button {{
+            background: #238636;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            padding: 0.4rem 0.75rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }}
+        
+        .todo-add-form button:last-child {{
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #8b949e;
+        }}
+        
+        .todo-add-form button:hover {{
+            opacity: 0.9;
+        }}
+        
         .focus-summary {{
             font-size: 0.9rem;
             color: #c9d1d9;
@@ -1742,7 +1808,15 @@ def get_dashboard_html(current_profile: str) -> str:
             </div>
             
             <div class="focus-section" id="focus-todos-section">
-                <div class="focus-section-title">✅ TODOs</div>
+                <div class="focus-section-title">
+                    ✅ TODOs
+                    <button class="add-btn" onclick="showAddTodoForm()" title="Add TODO">+</button>
+                </div>
+                <div class="todo-add-form" id="todo-add-form" style="display:none">
+                    <input type="text" id="todo-input" placeholder="Enter TODO..." onkeydown="if(event.key==='Enter')addTodo()">
+                    <button onclick="addTodo()">Add</button>
+                    <button onclick="hideAddTodoForm()">Cancel</button>
+                </div>
                 <div class="todo-list" id="focus-todos">
                     <div class="empty-section">No TODOs found</div>
                 </div>
@@ -1753,6 +1827,7 @@ def get_dashboard_html(current_profile: str) -> str:
                 <div class="branch-list" id="focus-branches">
                     <div class="empty-section">Loading branches...</div>
                 </div>
+                <button class="show-more-btn" id="branches-show-more" style="display:none" onclick="showMoreBranches()">Show more</button>
             </div>
             
             <div class="focus-section" id="focus-activity-section">
@@ -2454,6 +2529,9 @@ def get_dashboard_html(current_profile: str) -> str:
         }}
         
         async function enterFocusMode(ws) {{
+            // Store current focused workstream ID for TODO adding
+            currentFocusedWsId = ws.id;
+            
             // Add focus mode class to body
             document.body.classList.add('focus-mode');
             
@@ -2647,28 +2725,99 @@ def get_dashboard_html(current_profile: str) -> str:
             renderActivityPage();
         }}
         
+        let allBranches = [];
+        let branchesPage = 0;
+        const BRANCHES_PAGE_SIZE = 3;
+        
         async function loadFocusBranches(workstreamId) {{
             const container = document.getElementById('focus-branches');
+            const showMoreBtn = document.getElementById('branches-show-more');
             container.innerHTML = '<div class="empty-section">Loading branches...</div>';
+            showMoreBtn.style.display = 'none';
             
             try {{
-                const response = await fetch(`/api/workstreams/${{workstreamId}}/branches?profile={current_profile}`);
+                const response = await fetch(`/api/workstreams/${{workstreamId}}/branches?profile={current_profile}&days=14`);
                 const data = await response.json();
                 
                 if (data.branches && data.branches.length > 0) {{
-                    container.innerHTML = data.branches.map(branch => `
-                        <div class="branch-item ${{branch.current ? 'current' : ''}}">
-                            <span class="branch-icon">${{branch.current ? '●' : '○'}}</span>
-                            <span class="branch-name">${{escapeHtml(branch.name)}}</span>
-                            <span class="branch-time">${{escapeHtml(branch.time)}}</span>
-                        </div>
-                    `).join('');
+                    allBranches = data.branches;
+                    branchesPage = 0;
+                    renderBranchesPage();
+                    
+                    if (allBranches.length > BRANCHES_PAGE_SIZE) {{
+                        showMoreBtn.style.display = 'block';
+                    }}
                 }} else {{
-                    container.innerHTML = `<div class="empty-section">${{data.error || 'No branches found'}}</div>`;
+                    container.innerHTML = `<div class="empty-section">${{data.error || 'No recent branches'}}</div>`;
                 }}
             }} catch (e) {{
                 console.error('Failed to load branches:', e);
                 container.innerHTML = '<div class="empty-section">Failed to load branches</div>';
+            }}
+        }}
+        
+        function renderBranchesPage() {{
+            const container = document.getElementById('focus-branches');
+            const showMoreBtn = document.getElementById('branches-show-more');
+            const end = (branchesPage + 1) * BRANCHES_PAGE_SIZE;
+            const visibleBranches = allBranches.slice(0, end);
+            
+            container.innerHTML = visibleBranches.map(branch => `
+                <div class="branch-item ${{branch.current ? 'current' : ''}}">
+                    <span class="branch-icon">${{branch.current ? '●' : '○'}}</span>
+                    <span class="branch-name">${{escapeHtml(branch.name)}}</span>
+                    <span class="branch-time">${{escapeHtml(branch.time)}}</span>
+                </div>
+            `).join('');
+            
+            if (end >= allBranches.length) {{
+                showMoreBtn.style.display = 'none';
+            }} else {{
+                showMoreBtn.style.display = 'block';
+            }}
+        }}
+        
+        function showMoreBranches() {{
+            branchesPage++;
+            renderBranchesPage();
+        }}
+        
+        // TODO functions
+        let currentFocusedWsId = null;
+        
+        function showAddTodoForm() {{
+            document.getElementById('todo-add-form').style.display = 'flex';
+            document.getElementById('todo-input').focus();
+        }}
+        
+        function hideAddTodoForm() {{
+            document.getElementById('todo-add-form').style.display = 'none';
+            document.getElementById('todo-input').value = '';
+        }}
+        
+        async function addTodo() {{
+            const input = document.getElementById('todo-input');
+            const text = input.value.trim();
+            if (!text || !currentFocusedWsId) return;
+            
+            try {{
+                // Add as a note with TODO prefix
+                const response = await fetch(`/api/workstreams/${{currentFocusedWsId}}/notes?profile={current_profile}`, {{
+                    method: 'POST',
+                    headers: {{ 'Content-Type': 'application/json' }},
+                    body: JSON.stringify({{ content: `TODO: ${{text}}` }})
+                }});
+                
+                if (response.ok) {{
+                    hideAddTodoForm();
+                    // Refresh the workstream data and TODOs
+                    const wsResponse = await fetch(`/api/workstreams/${{currentFocusedWsId}}?profile={current_profile}`);
+                    const ws = await wsResponse.json();
+                    workstreamData[currentFocusedWsId] = ws;
+                    extractTodosFromNotes(ws);
+                }}
+            }} catch (e) {{
+                console.error('Failed to add TODO:', e);
             }}
         }}
         
@@ -3661,9 +3810,14 @@ async def get_activity(
 
 
 @app.get("/api/workstreams/{workstream_id}/branches")
-async def get_branches(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
+async def get_branches(
+    workstream_id: str,
+    profile: str = Query(default=DEFAULT_PROFILE),
+    days: int = Query(default=14, description="Filter branches active in last N days"),
+):
     """Get active git branches for a workstream's repo."""
     import subprocess
+    from datetime import datetime, timedelta
 
     if profile not in PROFILES:
         profile = DEFAULT_PROFILE
@@ -3701,29 +3855,37 @@ async def get_branches(workstream_id: str, profile: str = Query(default=DEFAULT_
         )
         current_branch = current_result.stdout.strip() if current_result.returncode == 0 else None
 
-        # Get recent branches sorted by last commit date
+        # Get branches with commit timestamps
+        since_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
         result = subprocess.run(
             [
                 "git", "-C", repo_path, "for-each-ref",
                 "--sort=-committerdate",
-                "--format=%(refname:short)|%(committerdate:relative)|%(subject)",
-                "refs/heads/",
-                "--count=10"
+                "--format=%(refname:short)|%(committerdate:relative)|%(committerdate:unix)|%(subject)",
+                "refs/heads/"
             ],
             capture_output=True, text=True, timeout=10
         )
         
         branches = []
+        cutoff_timestamp = (datetime.now() - timedelta(days=days)).timestamp()
+        
         if result.returncode == 0 and result.stdout.strip():
             for line in result.stdout.strip().split("\n"):
-                parts = line.split("|", 2)
-                if len(parts) >= 2:
-                    branches.append({
-                        "name": parts[0],
-                        "time": parts[1],
-                        "message": parts[2] if len(parts) > 2 else "",
-                        "current": parts[0] == current_branch
-                    })
+                parts = line.split("|", 3)
+                if len(parts) >= 3:
+                    try:
+                        commit_ts = int(parts[2])
+                        # Only include branches with activity in last N days
+                        if commit_ts >= cutoff_timestamp:
+                            branches.append({
+                                "name": parts[0],
+                                "time": parts[1],
+                                "message": parts[3] if len(parts) > 3 else "",
+                                "current": parts[0] == current_branch
+                            })
+                    except ValueError:
+                        pass
         
         return {"branches": branches, "current": current_branch, "repo_path": repo_path}
     except Exception as e:
