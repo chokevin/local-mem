@@ -845,6 +845,66 @@ def get_dashboard_html(current_profile: str) -> str:
             padding: 0.5rem;
         }}
         
+        .show-more-btn {{
+            width: 100%;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #58a6ff;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }}
+        
+        .show-more-btn:hover {{
+            background: #30363d;
+            border-color: #58a6ff;
+        }}
+        
+        /* Branch list */
+        .branch-list {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }}
+        
+        .branch-item {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(33, 38, 45, 0.5);
+            border: 1px solid #30363d;
+            border-radius: 6px;
+        }}
+        
+        .branch-item.current {{
+            border-color: #3fb950;
+            background: rgba(63, 185, 80, 0.1);
+        }}
+        
+        .branch-icon {{
+            font-size: 0.9rem;
+        }}
+        
+        .branch-name {{
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.8rem;
+            color: #c9d1d9;
+            flex: 1;
+        }}
+        
+        .branch-item.current .branch-name {{
+            color: #3fb950;
+        }}
+        
+        .branch-time {{
+            font-size: 0.7rem;
+            color: #6e7681;
+        }}
+        
         .repo-action.loading {{
             position: relative;
             color: transparent;
@@ -1681,24 +1741,32 @@ def get_dashboard_html(current_profile: str) -> str:
                 <div class="focus-tags" id="focus-tags"></div>
             </div>
             
+            <div class="focus-section" id="focus-todos-section">
+                <div class="focus-section-title">✅ TODOs</div>
+                <div class="todo-list" id="focus-todos">
+                    <div class="empty-section">No TODOs found</div>
+                </div>
+            </div>
+            
+            <div class="focus-section" id="focus-branches-section">
+                <div class="focus-section-title">🌿 Active Branches</div>
+                <div class="branch-list" id="focus-branches">
+                    <div class="empty-section">Loading branches...</div>
+                </div>
+            </div>
+            
             <div class="focus-section" id="focus-activity-section">
                 <div class="focus-section-title">📊 Recent Activity</div>
                 <div class="activity-list" id="focus-activity">
                     <div class="empty-section">Loading activity...</div>
                 </div>
+                <button class="show-more-btn" id="activity-show-more" style="display:none" onclick="showMoreActivity()">Show more</button>
             </div>
             
             <div class="focus-section" id="focus-connections-section">
                 <div class="focus-section-title">🔗 Connections</div>
                 <div class="connection-list" id="focus-connections">
                     <div class="empty-section">Loading connections...</div>
-                </div>
-            </div>
-            
-            <div class="focus-section" id="focus-todos-section">
-                <div class="focus-section-title">✅ TODOs</div>
-                <div class="todo-list" id="focus-todos">
-                    <div class="empty-section">No TODOs found</div>
                 </div>
             </div>
         </div>
@@ -1782,7 +1850,7 @@ def get_dashboard_html(current_profile: str) -> str:
     <div id="data-container" hx-ext="sse" sse-connect="/events?profile={current_profile}" sse-swap="message" hx-swap="innerHTML"></div>
     
     <script>
-        let svg, simulation, nodeGroup, linkGroup;
+        let svg, simulation, nodeGroup, linkGroup, zoom;
         let nodes = [], links = [];
         let selectedNode = null;
         let workstreamData = {{}};
@@ -1796,7 +1864,7 @@ def get_dashboard_html(current_profile: str) -> str:
                 .attr('height', height);
             
             // Add zoom behavior
-            const zoom = d3.zoom()
+            zoom = d3.zoom()
                 .scaleExtent([0.3, 3])
                 .on('zoom', (event) => {{
                     container.attr('transform', event.transform);
@@ -2396,12 +2464,15 @@ def get_dashboard_html(current_profile: str) -> str:
             // Hide detail panel if open
             hidePanel();
             
+            // Get type from metadata or default
+            const wsType = (ws.metadata && ws.metadata.type) || 'project';
+            
             // Update panel content
             document.getElementById('focus-name').textContent = ws.name;
-            document.getElementById('focus-type-label').textContent = ws.type;
+            document.getElementById('focus-type-label').textContent = wsType;
             
             const badge = document.getElementById('focus-type-badge');
-            badge.className = `focus-type-badge ${{ws.type}}`;
+            badge.className = `focus-type-badge ${{wsType}}`;
             
             document.getElementById('focus-summary').textContent = ws.summary || 'No summary available';
             
@@ -2430,6 +2501,8 @@ def get_dashboard_html(current_profile: str) -> str:
             }}
             
             // Load async data
+            console.log('Loading focus data for:', ws.id);
+            loadFocusBranches(ws.id);
             loadFocusActivity(ws.id);
             loadFocusConnections(ws.id);
             extractTodosFromNotes(ws);
@@ -2505,34 +2578,97 @@ def get_dashboard_html(current_profile: str) -> str:
                 .attr('stroke-width', 1);
         }}
         
+        let allCommits = [];
+        let activityPage = 0;
+        const ACTIVITY_PAGE_SIZE = 5;
+        
         async function loadFocusActivity(workstreamId) {{
             const container = document.getElementById('focus-activity');
+            const showMoreBtn = document.getElementById('activity-show-more');
             container.innerHTML = '<div class="empty-section">Loading activity...</div>';
+            showMoreBtn.style.display = 'none';
             
             try {{
-                const response = await fetch(`/api/workstreams/${{workstreamId}}/activity?profile={current_profile}`);
+                console.log('Fetching activity for:', workstreamId);
+                const response = await fetch(`/api/workstreams/${{workstreamId}}/activity?profile={current_profile}&days=30`);
                 const data = await response.json();
+                console.log('Activity response:', data);
                 
                 if (data.commits && data.commits.length > 0) {{
-                    container.innerHTML = data.commits.map(commit => {{
-                        const date = new Date(commit.timestamp * 1000);
-                        const timeAgo = getTimeAgo(date);
-                        return `
-                            <div class="activity-item">
-                                <div class="activity-header">
-                                    <span class="activity-sha">${{commit.sha}}</span>
-                                    <span class="activity-time">${{timeAgo}}</span>
-                                </div>
-                                <div class="activity-message">${{escapeHtml(commit.message)}}</div>
-                                <div class="activity-author">by ${{escapeHtml(commit.author)}}</div>
-                            </div>
-                        `;
-                    }}).join('');
+                    allCommits = data.commits;
+                    activityPage = 0;
+                    renderActivityPage();
+                    
+                    // Show "Show more" if there are more commits
+                    if (allCommits.length > ACTIVITY_PAGE_SIZE) {{
+                        showMoreBtn.style.display = 'block';
+                    }}
                 }} else {{
                     container.innerHTML = `<div class="empty-section">${{data.error || 'No recent commits'}}</div>`;
                 }}
             }} catch (e) {{
+                console.error('Failed to load activity:', e);
                 container.innerHTML = '<div class="empty-section">Failed to load activity</div>';
+            }}
+        }}
+        
+        function renderActivityPage() {{
+            const container = document.getElementById('focus-activity');
+            const showMoreBtn = document.getElementById('activity-show-more');
+            const start = 0;
+            const end = (activityPage + 1) * ACTIVITY_PAGE_SIZE;
+            const visibleCommits = allCommits.slice(start, end);
+            
+            container.innerHTML = visibleCommits.map(commit => {{
+                const date = new Date(commit.timestamp * 1000);
+                const timeAgo = getTimeAgo(date);
+                return `
+                    <div class="activity-item">
+                        <div class="activity-header">
+                            <span class="activity-sha">${{commit.sha}}</span>
+                            <span class="activity-time">${{timeAgo}}</span>
+                        </div>
+                        <div class="activity-message">${{escapeHtml(commit.message)}}</div>
+                        <div class="activity-author">by ${{escapeHtml(commit.author)}}</div>
+                    </div>
+                `;
+            }}).join('');
+            
+            // Hide show more if all shown
+            if (end >= allCommits.length) {{
+                showMoreBtn.style.display = 'none';
+            }} else {{
+                showMoreBtn.style.display = 'block';
+            }}
+        }}
+        
+        function showMoreActivity() {{
+            activityPage++;
+            renderActivityPage();
+        }}
+        
+        async function loadFocusBranches(workstreamId) {{
+            const container = document.getElementById('focus-branches');
+            container.innerHTML = '<div class="empty-section">Loading branches...</div>';
+            
+            try {{
+                const response = await fetch(`/api/workstreams/${{workstreamId}}/branches?profile={current_profile}`);
+                const data = await response.json();
+                
+                if (data.branches && data.branches.length > 0) {{
+                    container.innerHTML = data.branches.map(branch => `
+                        <div class="branch-item ${{branch.current ? 'current' : ''}}">
+                            <span class="branch-icon">${{branch.current ? '●' : '○'}}</span>
+                            <span class="branch-name">${{escapeHtml(branch.name)}}</span>
+                            <span class="branch-time">${{escapeHtml(branch.time)}}</span>
+                        </div>
+                    `).join('');
+                }} else {{
+                    container.innerHTML = `<div class="empty-section">${{data.error || 'No branches found'}}</div>`;
+                }}
+            }} catch (e) {{
+                console.error('Failed to load branches:', e);
+                container.innerHTML = '<div class="empty-section">Failed to load branches</div>';
             }}
         }}
         
@@ -2541,8 +2677,10 @@ def get_dashboard_html(current_profile: str) -> str:
             container.innerHTML = '<div class="empty-section">Loading connections...</div>';
             
             try {{
+                console.log('Fetching connections for:', workstreamId);
                 const response = await fetch(`/api/workstreams/${{workstreamId}}/connections?profile={current_profile}`);
                 const data = await response.json();
+                console.log('Connections response:', data);
                 
                 const items = [];
                 
@@ -2603,7 +2741,8 @@ def get_dashboard_html(current_profile: str) -> str:
             // Parse notes for TODO patterns
             if (ws.notes && ws.notes.length > 0) {{
                 ws.notes.forEach(note => {{
-                    const content = note.content || '';
+                    // Notes can be strings or objects with content
+                    const content = typeof note === 'string' ? note : (note.content || '');
                     // Match TODO, FIXME, [ ], [x] patterns
                     const todoMatches = content.match(/(?:TODO|FIXME|\\[ \\]|\\[x\\])\\s*:?\\s*.+/gi) || [];
                     todoMatches.forEach(match => {{
@@ -3519,6 +3658,76 @@ async def get_activity(
         return {"commits": commits, "repo_path": repo_path}
     except Exception as e:
         return {"commits": [], "error": str(e)}
+
+
+@app.get("/api/workstreams/{workstream_id}/branches")
+async def get_branches(workstream_id: str, profile: str = Query(default=DEFAULT_PROFILE)):
+    """Get active git branches for a workstream's repo."""
+    import subprocess
+
+    if profile not in PROFILES:
+        profile = DEFAULT_PROFILE
+    storage = get_storage(profile)
+    await storage._load()
+
+    ws = await storage.get(workstream_id)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workstream not found")
+
+    # Get repo path from metadata
+    repo_path = None
+    if ws.metadata:
+        if hasattr(ws.metadata, 'extra') and ws.metadata.extra:
+            repo_path = ws.metadata.extra.get("repo_path")
+        elif hasattr(ws.metadata, '__dict__'):
+            repo_path = ws.metadata.__dict__.get("repo_path")
+
+    if not repo_path:
+        return {"branches": [], "error": "No repo path found"}
+
+    # Handle container path mapping
+    if repo_path.startswith("/host-dev/"):
+        repo_name = repo_path.replace("/host-dev/", "")
+        repo_path = str(Path.home() / "dev" / repo_name)
+
+    if not Path(repo_path).exists():
+        return {"branches": [], "error": f"Repo path not found: {repo_path}"}
+
+    try:
+        # Get current branch
+        current_result = subprocess.run(
+            ["git", "-C", repo_path, "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=5
+        )
+        current_branch = current_result.stdout.strip() if current_result.returncode == 0 else None
+
+        # Get recent branches sorted by last commit date
+        result = subprocess.run(
+            [
+                "git", "-C", repo_path, "for-each-ref",
+                "--sort=-committerdate",
+                "--format=%(refname:short)|%(committerdate:relative)|%(subject)",
+                "refs/heads/",
+                "--count=10"
+            ],
+            capture_output=True, text=True, timeout=10
+        )
+        
+        branches = []
+        if result.returncode == 0 and result.stdout.strip():
+            for line in result.stdout.strip().split("\n"):
+                parts = line.split("|", 2)
+                if len(parts) >= 2:
+                    branches.append({
+                        "name": parts[0],
+                        "time": parts[1],
+                        "message": parts[2] if len(parts) > 2 else "",
+                        "current": parts[0] == current_branch
+                    })
+        
+        return {"branches": branches, "current": current_branch, "repo_path": repo_path}
+    except Exception as e:
+        return {"branches": [], "error": str(e)}
 
 
 @app.get("/api/workstreams/{workstream_id}/connections")
