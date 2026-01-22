@@ -2805,7 +2805,7 @@ def get_dashboard_html(current_profile: str) -> str:
                 const response = await fetch(`/api/workstreams/${{currentFocusedWsId}}/notes?profile={current_profile}`, {{
                     method: 'POST',
                     headers: {{ 'Content-Type': 'application/json' }},
-                    body: JSON.stringify({{ content: `TODO: ${{text}}` }})
+                    body: JSON.stringify({{ note: `TODO: ${{text}}` }})
                 }});
                 
                 if (response.ok) {{
@@ -2815,6 +2815,9 @@ def get_dashboard_html(current_profile: str) -> str:
                     const ws = await wsResponse.json();
                     workstreamData[currentFocusedWsId] = ws;
                     extractTodosFromNotes(ws);
+                }} else {{
+                    const err = await response.json();
+                    console.error('Failed to add TODO:', err);
                 }}
             }} catch (e) {{
                 console.error('Failed to add TODO:', e);
