@@ -1289,11 +1289,23 @@ def get_dashboard_html(current_profile: str) -> str:
             flex-direction: column;
             z-index: 200;
             transform: translateX(100%);
-            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }}
         
         .detail-panel.visible {{
             transform: translateX(0);
+        }}
+        
+        .detail-panel.focused {{
+            width: 520px;
+        }}
+        
+        .focus-sections {{
+            display: none;
+        }}
+        
+        .detail-panel.focused .focus-sections {{
+            display: block;
         }}
         
         .panel-header {{
@@ -1804,69 +1816,6 @@ def get_dashboard_html(current_profile: str) -> str:
         </div>
     </div>
     
-    <!-- Focus Panel - Full height info panel -->
-    <div class="focus-panel" id="focus-panel">
-        <div class="focus-panel-header">
-            <button class="focus-panel-close" onclick="exitFocusMode()">&times;</button>
-            <h2>
-                <span id="focus-name">Project Name</span>
-            </h2>
-            <span class="focus-type-badge project" id="focus-type-badge">
-                <span class="type-dot"></span>
-                <span id="focus-type-label">Project</span>
-            </span>
-        </div>
-        <div class="focus-panel-body">
-            <div class="focus-section" id="focus-summary-section">
-                <div class="focus-section-title">📝 Summary</div>
-                <div class="focus-summary" id="focus-summary">Loading...</div>
-            </div>
-            
-            <div class="focus-section" id="focus-tags-section">
-                <div class="focus-section-title">🏷️ Tags</div>
-                <div class="focus-tags" id="focus-tags"></div>
-            </div>
-            
-            <div class="focus-section" id="focus-todos-section">
-                <div class="focus-section-title">
-                    ✅ TODOs
-                    <button class="add-btn" onclick="showAddTodoForm()" title="Add TODO">+</button>
-                </div>
-                <div class="todo-add-form" id="todo-add-form" style="display:none">
-                    <input type="text" id="todo-input" placeholder="Enter TODO..." onkeydown="if(event.key==='Enter')addTodo()">
-                    <button onclick="addTodo()">Add</button>
-                    <button onclick="hideAddTodoForm()">Cancel</button>
-                </div>
-                <div class="todo-list" id="focus-todos">
-                    <div class="empty-section">No TODOs found</div>
-                </div>
-            </div>
-            
-            <div class="focus-section" id="focus-branches-section">
-                <div class="focus-section-title">🌿 Active Branches</div>
-                <div class="branch-list" id="focus-branches">
-                    <div class="empty-section">Loading branches...</div>
-                </div>
-                <button class="show-more-btn" id="branches-show-more" style="display:none" onclick="showMoreBranches()">Show more</button>
-            </div>
-            
-            <div class="focus-section" id="focus-activity-section">
-                <div class="focus-section-title">📊 Recent Activity</div>
-                <div class="activity-list" id="focus-activity">
-                    <div class="empty-section">Loading activity...</div>
-                </div>
-                <button class="show-more-btn" id="activity-show-more" style="display:none" onclick="showMoreActivity()">Show more</button>
-            </div>
-            
-            <div class="focus-section" id="focus-connections-section">
-                <div class="focus-section-title">🔗 Connections</div>
-                <div class="connection-list" id="focus-connections">
-                    <div class="empty-section">Loading connections...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
     <div class="detail-panel" id="detail-panel">
         <div class="panel-header">
             <button class="close-btn" onclick="hidePanel()">&times;</button>
@@ -1905,6 +1854,40 @@ def get_dashboard_html(current_profile: str) -> str:
             <div class="panel-section" id="panel-meta-section" style="display:none">
                 <div class="panel-section-title">Metadata</div>
                 <div class="panel-meta" id="panel-meta"></div>
+            </div>
+            
+            <!-- Focus Mode Sections (shown when focused via dropdown) -->
+            <div class="focus-sections">
+                <div class="panel-section" id="panel-todos-section">
+                    <div class="panel-section-title">
+                        ✅ TODOs
+                        <button class="add-btn" onclick="showAddTodoForm()" title="Add TODO">+</button>
+                    </div>
+                    <div class="todo-add-form" id="todo-add-form" style="display:none">
+                        <input type="text" id="todo-input" placeholder="Enter TODO..." onkeydown="if(event.key==='Enter')addTodo()">
+                        <button onclick="addTodo()">Add</button>
+                        <button onclick="hideAddTodoForm()">Cancel</button>
+                    </div>
+                    <div class="todo-list" id="panel-todos">
+                        <div class="empty-section">No TODOs found</div>
+                    </div>
+                </div>
+                
+                <div class="panel-section" id="panel-branches-section">
+                    <div class="panel-section-title">🌿 Active Branches</div>
+                    <div class="branch-list" id="panel-branches">
+                        <div class="empty-section">Loading branches...</div>
+                    </div>
+                    <button class="show-more-btn" id="branches-show-more" style="display:none" onclick="showMoreBranches()">Show more</button>
+                </div>
+                
+                <div class="panel-section" id="panel-activity-section">
+                    <div class="panel-section-title">📊 Recent Activity</div>
+                    <div class="activity-list" id="panel-activity">
+                        <div class="empty-section">Loading activity...</div>
+                    </div>
+                    <button class="show-more-btn" id="activity-show-more" style="display:none" onclick="showMoreActivity()">Show more</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2407,6 +2390,17 @@ def get_dashboard_html(current_profile: str) -> str:
         function hidePanel() {{
             const panel = document.getElementById('detail-panel');
             panel.classList.remove('visible');
+            panel.classList.remove('focused');
+            
+            // Reset focus mode if active
+            if (document.body.classList.contains('focus-mode')) {{
+                document.body.classList.remove('focus-mode');
+                resetGraphFocusEffect();
+                document.getElementById('focus-select').value = '';
+                focusedWorkstreamId = null;
+                currentFocusedWsId = null;
+                document.cookie = 'focused_workstream=;max-age=0;path=/';
+            }}
             
             // Reset all highlighting
             nodeGroup.selectAll('.node').classed('selected', false).classed('dimmed', false).classed('connected', false);
@@ -2552,64 +2546,39 @@ def get_dashboard_html(current_profile: str) -> str:
             // Store current focused workstream ID for TODO adding
             currentFocusedWsId = ws.id;
             
-            // Add focus mode class to body
+            // Add focus mode class to body and detail panel
             document.body.classList.add('focus-mode');
+            const panel = document.getElementById('detail-panel');
+            panel.classList.add('focused');
             
-            // Show focus panel
-            const panel = document.getElementById('focus-panel');
-            panel.classList.add('visible');
-            
-            // Hide detail panel if open
-            hidePanel();
-            
-            // Get type from metadata or default
-            const wsType = (ws.metadata && ws.metadata.type) || 'project';
-            
-            // Update panel content
-            document.getElementById('focus-name').textContent = ws.name;
-            document.getElementById('focus-type-label').textContent = wsType;
-            
-            const badge = document.getElementById('focus-type-badge');
-            badge.className = `focus-type-badge ${{wsType}}`;
-            
-            document.getElementById('focus-summary').textContent = ws.summary || 'No summary available';
-            
-            // Tags
-            const tagsContainer = document.getElementById('focus-tags');
-            if (ws.tags && ws.tags.length > 0) {{
-                tagsContainer.innerHTML = ws.tags.map(tag => 
-                    `<span class="focus-tag">${{tag}}</span>`
-                ).join('');
-            }} else {{
-                tagsContainer.innerHTML = '<span class="empty-section">No tags</span>';
-            }}
+            // Show the panel with workstream info (reuse showWorkstreamPanel logic)
+            showWorkstreamPanel(ws);
             
             // Dim non-focused nodes and highlight focused one
             applyGraphFocusEffect(ws.id);
             
-            // Center graph on focused node
+            // Center graph on focused node (shift left to account for right panel)
             const node = nodes.find(n => n.id === ws.id);
             if (node && svg) {{
-                // Shift center to right to account for panel
                 const transform = d3.zoomIdentity
-                    .translate(window.innerWidth / 2 + 200, window.innerHeight / 2)
+                    .translate(window.innerWidth / 2 - 200, window.innerHeight / 2)
                     .scale(1.2)
                     .translate(-node.x, -node.y);
                 svg.transition().duration(750).call(zoom.transform, transform);
             }}
             
-            // Load async data
+            // Load focus-specific data into the panel
             console.log('Loading focus data for:', ws.id);
-            loadFocusBranches(ws.id);
-            loadFocusActivity(ws.id);
-            loadFocusConnections(ws.id);
-            extractTodosFromNotes(ws);
+            loadPanelBranches(ws.id);
+            loadPanelActivity(ws.id);
+            extractTodosForPanel(ws);
         }}
         
         function exitFocusMode() {{
             document.body.classList.remove('focus-mode');
             
-            const panel = document.getElementById('focus-panel');
+            const panel = document.getElementById('detail-panel');
+            panel.classList.remove('focused');
             panel.classList.remove('visible');
             
             // Reset graph effects
@@ -2620,9 +2589,10 @@ def get_dashboard_html(current_profile: str) -> str:
                 svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
             }}
             
-            // Reset dropdown
+            // Reset dropdown and state
             document.getElementById('focus-select').value = '';
             focusedWorkstreamId = null;
+            currentFocusedWsId = null;
             document.cookie = 'focused_workstream=;max-age=0;path=/';
         }}
         
@@ -2742,64 +2712,16 @@ def get_dashboard_html(current_profile: str) -> str:
         
         function showMoreActivity() {{
             activityPage++;
-            renderActivityPage();
+            renderPanelActivityPage();
         }}
         
         let allBranches = [];
         let branchesPage = 0;
         const BRANCHES_PAGE_SIZE = 3;
         
-        async function loadFocusBranches(workstreamId) {{
-            const container = document.getElementById('focus-branches');
-            const showMoreBtn = document.getElementById('branches-show-more');
-            container.innerHTML = '<div class="empty-section">Loading branches...</div>';
-            showMoreBtn.style.display = 'none';
-            
-            try {{
-                const response = await fetch(`/api/workstreams/${{workstreamId}}/branches?profile={current_profile}&days=14`);
-                const data = await response.json();
-                
-                if (data.branches && data.branches.length > 0) {{
-                    allBranches = data.branches;
-                    branchesPage = 0;
-                    renderBranchesPage();
-                    
-                    if (allBranches.length > BRANCHES_PAGE_SIZE) {{
-                        showMoreBtn.style.display = 'block';
-                    }}
-                }} else {{
-                    container.innerHTML = `<div class="empty-section">${{data.error || 'No recent branches'}}</div>`;
-                }}
-            }} catch (e) {{
-                console.error('Failed to load branches:', e);
-                container.innerHTML = '<div class="empty-section">Failed to load branches</div>';
-            }}
-        }}
-        
-        function renderBranchesPage() {{
-            const container = document.getElementById('focus-branches');
-            const showMoreBtn = document.getElementById('branches-show-more');
-            const end = (branchesPage + 1) * BRANCHES_PAGE_SIZE;
-            const visibleBranches = allBranches.slice(0, end);
-            
-            container.innerHTML = visibleBranches.map(branch => `
-                <div class="branch-item ${{branch.current ? 'current' : ''}}">
-                    <span class="branch-icon">${{branch.current ? '●' : '○'}}</span>
-                    <span class="branch-name">${{escapeHtml(branch.name)}}</span>
-                    <span class="branch-time">${{escapeHtml(branch.time)}}</span>
-                </div>
-            `).join('');
-            
-            if (end >= allBranches.length) {{
-                showMoreBtn.style.display = 'none';
-            }} else {{
-                showMoreBtn.style.display = 'block';
-            }}
-        }}
-        
         function showMoreBranches() {{
             branchesPage++;
-            renderBranchesPage();
+            renderPanelBranchesPage();
         }}
         
         // TODO functions
@@ -2834,7 +2756,7 @@ def get_dashboard_html(current_profile: str) -> str:
                     const wsResponse = await fetch(`/api/workstreams/${{currentFocusedWsId}}?profile={current_profile}`);
                     const ws = await wsResponse.json();
                     workstreamData[currentFocusedWsId] = ws;
-                    extractTodosFromNotes(ws);
+                    extractTodosForPanel(ws);
                 }} else {{
                     const err = await response.json();
                     console.error('Failed to add TODO:', err);
@@ -2951,12 +2873,149 @@ def get_dashboard_html(current_profile: str) -> str:
                     const wsResponse = await fetch(`/api/workstreams/${{currentFocusedWsId}}?profile={current_profile}`);
                     const ws = await wsResponse.json();
                     workstreamData[currentFocusedWsId] = ws;
-                    extractTodosFromNotes(ws);
+                    extractTodosForPanel(ws);
                 }} else {{
                     console.error('Failed to delete TODO');
                 }}
             }} catch (e) {{
                 console.error('Failed to delete TODO:', e);
+            }}
+        }}
+        
+        // Panel-specific versions that target the unified right panel
+        async function loadPanelActivity(workstreamId) {{
+            const container = document.getElementById('panel-activity');
+            const showMoreBtn = document.getElementById('activity-show-more');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="empty-section">Loading activity...</div>';
+            if (showMoreBtn) showMoreBtn.style.display = 'none';
+            
+            try {{
+                const response = await fetch(`/api/workstreams/${{workstreamId}}/activity?profile={current_profile}&days=30`);
+                const data = await response.json();
+                
+                if (data.commits && data.commits.length > 0) {{
+                    allCommits = data.commits;
+                    activityPage = 0;
+                    renderPanelActivityPage();
+                    
+                    if (allCommits.length > ACTIVITY_PAGE_SIZE && showMoreBtn) {{
+                        showMoreBtn.style.display = 'block';
+                    }}
+                }} else {{
+                    container.innerHTML = `<div class="empty-section">${{data.error || 'No recent commits'}}</div>`;
+                }}
+            }} catch (e) {{
+                container.innerHTML = '<div class="empty-section">Failed to load activity</div>';
+            }}
+        }}
+        
+        function renderPanelActivityPage() {{
+            const container = document.getElementById('panel-activity');
+            const showMoreBtn = document.getElementById('activity-show-more');
+            if (!container) return;
+            
+            const end = (activityPage + 1) * ACTIVITY_PAGE_SIZE;
+            const visibleCommits = allCommits.slice(0, end);
+            
+            container.innerHTML = visibleCommits.map(commit => {{
+                const date = new Date(commit.timestamp * 1000);
+                const timeAgo = getTimeAgo(date);
+                return `
+                    <div class="activity-item">
+                        <div class="activity-header">
+                            <span class="activity-sha">${{commit.sha}}</span>
+                            <span class="activity-time">${{timeAgo}}</span>
+                        </div>
+                        <div class="activity-message">${{escapeHtml(commit.message)}}</div>
+                        <div class="activity-author">by ${{escapeHtml(commit.author)}}</div>
+                    </div>
+                `;
+            }}).join('');
+            
+            if (showMoreBtn) {{
+                showMoreBtn.style.display = end >= allCommits.length ? 'none' : 'block';
+            }}
+        }}
+        
+        async function loadPanelBranches(workstreamId) {{
+            const container = document.getElementById('panel-branches');
+            const showMoreBtn = document.getElementById('branches-show-more');
+            if (!container) return;
+            
+            container.innerHTML = '<div class="empty-section">Loading branches...</div>';
+            if (showMoreBtn) showMoreBtn.style.display = 'none';
+            
+            try {{
+                const response = await fetch(`/api/workstreams/${{workstreamId}}/branches?profile={current_profile}&days=14`);
+                const data = await response.json();
+                
+                if (data.branches && data.branches.length > 0) {{
+                    allBranches = data.branches;
+                    branchesPage = 0;
+                    renderPanelBranchesPage();
+                    
+                    if (allBranches.length > BRANCHES_PAGE_SIZE && showMoreBtn) {{
+                        showMoreBtn.style.display = 'block';
+                    }}
+                }} else {{
+                    container.innerHTML = `<div class="empty-section">${{data.error || 'No recent branches'}}</div>`;
+                }}
+            }} catch (e) {{
+                container.innerHTML = '<div class="empty-section">Failed to load branches</div>';
+            }}
+        }}
+        
+        function renderPanelBranchesPage() {{
+            const container = document.getElementById('panel-branches');
+            const showMoreBtn = document.getElementById('branches-show-more');
+            if (!container) return;
+            
+            const end = (branchesPage + 1) * BRANCHES_PAGE_SIZE;
+            const visibleBranches = allBranches.slice(0, end);
+            
+            container.innerHTML = visibleBranches.map(branch => `
+                <div class="branch-item ${{branch.current ? 'current' : ''}}">
+                    <span class="branch-icon">${{branch.current ? '●' : '○'}}</span>
+                    <span class="branch-name">${{escapeHtml(branch.name)}}</span>
+                    <span class="branch-time">${{escapeHtml(branch.time)}}</span>
+                </div>
+            `).join('');
+            
+            if (showMoreBtn) {{
+                showMoreBtn.style.display = end >= allBranches.length ? 'none' : 'block';
+            }}
+        }}
+        
+        function extractTodosForPanel(ws) {{
+            const container = document.getElementById('panel-todos');
+            if (!container) return;
+            
+            const todos = [];
+            
+            if (ws.notes && ws.notes.length > 0) {{
+                ws.notes.forEach((note, noteIndex) => {{
+                    const content = typeof note === 'string' ? note : (note.content || '');
+                    const todoMatches = content.match(/(?:TODO|FIXME|\\[ \\]|\\[x\\])\\s*:?\\s*.+/gi) || [];
+                    todoMatches.forEach(match => {{
+                        const isDone = match.includes('[x]');
+                        const text = match.replace(/^(TODO|FIXME|\\[ \\]|\\[x\\])\\s*:?\\s*/i, '');
+                        todos.push({{ text, done: isDone, noteIndex }});
+                    }});
+                }});
+            }}
+            
+            if (todos.length > 0) {{
+                container.innerHTML = todos.map((todo, idx) => `
+                    <div class="todo-item">
+                        <span class="todo-checkbox">${{todo.done ? '☑' : '☐'}}</span>
+                        <span class="todo-text">${{escapeHtml(todo.text)}}</span>
+                        <button class="todo-delete" onclick="deleteTodo(${{todo.noteIndex}})" title="Delete">×</button>
+                    </div>
+                `).join('');
+            }} else {{
+                container.innerHTML = '<div class="empty-section">No TODOs found</div>';
             }}
         }}
         
