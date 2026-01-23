@@ -568,84 +568,91 @@ def get_dashboard_html(current_profile: str) -> str:
             color: #c9d1d9;
         }}
         
-        /* ============== Focus Mode ============== */
-        .focus-mode .graph-node:not(.focused) {{
-            opacity: 0.2;
-            transition: opacity 0.5s ease;
+        /* ============== Focus Mode - Full Page Takeover ============== */
+        .focus-mode #graph {{
+            position: fixed !important;
+            top: auto !important;
+            bottom: 20px;
+            right: 20px;
+            left: auto !important;
+            width: 280px !important;
+            height: 200px !important;
+            border-radius: 12px;
+            border: 1px solid #30363d;
+            background: #0d1117;
+            z-index: 400;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
         }}
         
-        .focus-mode .graph-node.focused {{
-            opacity: 1;
-            transform: scale(1.5);
-            transition: all 0.5s ease;
+        .focus-mode #graph:hover {{
+            border-color: #58a6ff;
+            box-shadow: 0 8px 32px rgba(88, 166, 255, 0.2);
         }}
         
-        .focus-mode .graph-link:not(.focused) {{
-            opacity: 0.1;
+        .focus-mode .header {{
+            display: none;
         }}
         
-        .focus-mode .graph-link.focused {{
-            opacity: 1;
-            stroke-width: 3px;
+        .focus-mode .legend {{
+            display: none;
         }}
         
-        /* Focus Panel - Full height overlay */
-        .focus-panel {{
+        .focus-mode .instructions {{
+            display: none;
+        }}
+        
+        .focus-mode .fab {{
+            display: none;
+        }}
+        
+        /* Focus Dashboard */
+        .focus-dashboard {{
             position: fixed;
             top: 0;
             left: 0;
-            width: 480px;
-            height: 100vh;
-            background: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
-            border-right: 1px solid #30363d;
-            z-index: 250;
-            transform: translateX(-100%);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+            z-index: 300;
+            display: none;
+            padding: 2rem;
+            overflow-y: auto;
+        }}
+        
+        .focus-mode .focus-dashboard {{
+            display: block;
+        }}
+        
+        .focus-header {{
             display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }}
-        
-        .focus-panel.visible {{
-            transform: translateX(0);
-        }}
-        
-        .focus-panel-header {{
-            padding: 1.5rem;
+            align-items: flex-start;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
             border-bottom: 1px solid #30363d;
-            background: rgba(22, 27, 34, 0.8);
-            backdrop-filter: blur(10px);
         }}
         
-        .focus-panel-header h2 {{
-            font-size: 1.4rem;
-            font-weight: 600;
-            color: #f0f6fc;
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
+        .focus-header-main {{
+            flex: 1;
         }}
         
-        .focus-panel-close {{
-            position: absolute;
-            top: 1.25rem;
-            right: 1.25rem;
+        .focus-back-btn {{
             background: transparent;
             border: 1px solid #30363d;
             color: #8b949e;
-            cursor: pointer;
-            width: 36px;
-            height: 36px;
+            padding: 0.5rem 1rem;
             border-radius: 8px;
+            cursor: pointer;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
+            gap: 0.5rem;
+            font-size: 0.9rem;
             transition: all 0.2s;
         }}
         
-        .focus-panel-close:hover {{
+        .focus-back-btn:hover {{
             background: #21262d;
             color: #f0f6fc;
             border-color: #8b949e;
@@ -655,60 +662,116 @@ def get_dashboard_html(current_profile: str) -> str:
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            padding: 0.3rem 0.6rem;
-            border-radius: 4px;
-            font-size: 0.65rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            margin-bottom: 0.75rem;
         }}
         
         .focus-type-badge.program {{
             background: rgba(240, 136, 62, 0.2);
             color: #f0883e;
+            border: 1px solid rgba(240, 136, 62, 0.3);
         }}
         
         .focus-type-badge.project {{
             background: rgba(88, 166, 255, 0.2);
             color: #58a6ff;
+            border: 1px solid rgba(88, 166, 255, 0.3);
         }}
         
-        .focus-type-badge.task {{
-            background: rgba(163, 113, 247, 0.2);
-            color: #a371f7;
+        .focus-type-badge.standalone {{
+            background: rgba(63, 185, 80, 0.2);
+            color: #3fb950;
+            border: 1px solid rgba(63, 185, 80, 0.3);
         }}
         
-        .focus-panel-body {{
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
+        .focus-title {{
+            font-size: 2rem;
+            font-weight: 600;
+            color: #f0f6fc;
+            margin-bottom: 0.75rem;
         }}
         
-        .focus-section {{
-            margin-bottom: 1.5rem;
+        .focus-summary-text {{
+            font-size: 1.1rem;
+            color: #8b949e;
+            line-height: 1.6;
+            max-width: 700px;
         }}
         
-        .focus-section-title {{
-            font-size: 0.7rem;
+        .focus-tags {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }}
+        
+        .focus-tag {{
+            background: #21262d;
+            color: #8b949e;
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            border: 1px solid #30363d;
+        }}
+        
+        /* Dashboard Grid */
+        .focus-grid {{
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 1.5rem;
+            max-width: 1400px;
+        }}
+        
+        .focus-card {{
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: border-color 0.2s;
+        }}
+        
+        .focus-card:hover {{
+            border-color: #484f58;
+        }}
+        
+        .focus-card.full-width {{
+            grid-column: 1 / -1;
+        }}
+        
+        .focus-card.two-cols {{
+            grid-column: span 2;
+        }}
+        
+        .focus-card-title {{
+            font-size: 0.8rem;
             font-weight: 600;
             color: #8b949e;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 0.75rem;
+            margin-bottom: 1rem;
             display: flex;
             align-items: center;
             gap: 0.5rem;
         }}
         
-        .focus-section-title .add-btn {{
+        .focus-card-title .card-icon {{
+            font-size: 1rem;
+        }}
+        
+        .focus-card-title .add-btn {{
             margin-left: auto;
             background: #238636;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             color: white;
-            width: 20px;
-            height: 20px;
-            font-size: 1rem;
+            width: 24px;
+            height: 24px;
+            font-size: 1.1rem;
             line-height: 1;
             cursor: pointer;
             display: flex;
@@ -717,17 +780,19 @@ def get_dashboard_html(current_profile: str) -> str:
             transition: background 0.2s;
         }}
         
-        .focus-section-title .add-btn:hover {{
+        .focus-card-title .add-btn:hover {{
             background: #2ea043;
         }}
+        }}
         
+        /* Todo items in focus dashboard */
         .todo-add-form {{
             display: flex;
             gap: 0.5rem;
             margin-bottom: 0.75rem;
-            padding: 0.5rem;
+            padding: 0.75rem;
             background: rgba(33, 38, 45, 0.8);
-            border-radius: 6px;
+            border-radius: 8px;
             border: 1px solid #30363d;
         }}
         
@@ -735,10 +800,10 @@ def get_dashboard_html(current_profile: str) -> str:
             flex: 1;
             background: #21262d;
             border: 1px solid #30363d;
-            border-radius: 4px;
+            border-radius: 6px;
             color: #c9d1d9;
-            padding: 0.4rem 0.6rem;
-            font-size: 0.85rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.9rem;
         }}
         
         .todo-add-form input:focus {{
@@ -749,10 +814,10 @@ def get_dashboard_html(current_profile: str) -> str:
         .todo-add-form button {{
             background: #238636;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             color: white;
-            padding: 0.4rem 0.75rem;
-            font-size: 0.8rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
             cursor: pointer;
         }}
         
@@ -764,31 +829,6 @@ def get_dashboard_html(current_profile: str) -> str:
         
         .todo-add-form button:hover {{
             opacity: 0.9;
-        }}
-        
-        .focus-summary {{
-            font-size: 0.9rem;
-            color: #c9d1d9;
-            line-height: 1.6;
-            padding: 0.75rem;
-            background: rgba(33, 38, 45, 0.5);
-            border-radius: 8px;
-            border: 1px solid #30363d;
-        }}
-        
-        .focus-tags {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }}
-        
-        .focus-tag {{
-            background: #21262d;
-            color: #8b949e;
-            padding: 0.35rem 0.65rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            border: 1px solid #30363d;
         }}
         
         /* Activity/Commits */
@@ -838,6 +878,18 @@ def get_dashboard_html(current_profile: str) -> str:
             font-size: 0.7rem;
             color: #8b949e;
             margin-top: 0.3rem;
+        }}
+        
+        .activity-meta {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0.4rem;
+        }}
+        
+        .activity-date {{
+            font-size: 0.7rem;
+            color: #6e7681;
         }}
         
         /* Connections */
@@ -929,6 +981,23 @@ def get_dashboard_html(current_profile: str) -> str:
             font-size: 0.8rem;
             font-style: italic;
             padding: 0.5rem;
+        }}
+        
+        /* Notes in focus dashboard */
+        .notes-list {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }}
+        
+        .note-item {{
+            padding: 0.6rem 0.75rem;
+            background: rgba(33, 38, 45, 0.5);
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            color: #c9d1d9;
+            line-height: 1.5;
         }}
         
         .show-more-btn {{
@@ -1294,6 +1363,11 @@ def get_dashboard_html(current_profile: str) -> str:
         
         .detail-panel.visible {{
             transform: translateX(0);
+        }}
+        
+        /* Hide detail panel in focus mode */
+        .focus-mode .detail-panel {{
+            display: none;
         }}
         
         .panel-header {{
@@ -1760,6 +1834,83 @@ def get_dashboard_html(current_profile: str) -> str:
         </defs>
     </svg>
     
+    <!-- Focus Dashboard (Full Page Takeover) -->
+    <div class="focus-dashboard" id="focus-dashboard">
+        <div class="focus-header">
+            <button class="focus-back-btn" onclick="exitFocusMode()">
+                ← Back to Overview
+            </button>
+            <div class="focus-header-main">
+                <div class="focus-type-badge" id="focus-type-badge">
+                    <span id="focus-type-label">Project</span>
+                </div>
+                <h1 class="focus-title" id="focus-title">Project Name</h1>
+                <p class="focus-summary-text" id="focus-summary">Project summary goes here...</p>
+                <div class="focus-tags" id="focus-tags"></div>
+            </div>
+        </div>
+        
+        <div class="focus-grid">
+            <!-- TODOs Card -->
+            <div class="focus-card">
+                <div class="focus-card-title">
+                    <span class="card-icon">✅</span> TODOs
+                    <button class="add-btn" onclick="showAddTodoForm()" title="Add TODO">+</button>
+                </div>
+                <div class="todo-add-form" id="todo-add-form" style="display:none">
+                    <input type="text" id="todo-input" placeholder="Enter TODO..." onkeydown="if(event.key==='Enter')addTodo()">
+                    <button onclick="addTodo()">Add</button>
+                    <button onclick="hideAddTodoForm()">Cancel</button>
+                </div>
+                <div class="todo-list" id="focus-todos">
+                    <div class="empty-section">No TODOs found</div>
+                </div>
+            </div>
+            
+            <!-- Active Branches Card -->
+            <div class="focus-card">
+                <div class="focus-card-title">
+                    <span class="card-icon">🌿</span> Active Branches
+                </div>
+                <div class="branch-list" id="focus-branches">
+                    <div class="empty-section">Loading...</div>
+                </div>
+                <button class="show-more-btn" id="branches-show-more" style="display:none" onclick="showMoreBranches()">Show more</button>
+            </div>
+            
+            <!-- Connections Card -->
+            <div class="focus-card">
+                <div class="focus-card-title">
+                    <span class="card-icon">🔗</span> Connections
+                </div>
+                <div class="connection-list" id="focus-connections">
+                    <div class="empty-section">No connections</div>
+                </div>
+            </div>
+            
+            <!-- Recent Activity Card (spans 2 columns) -->
+            <div class="focus-card two-cols">
+                <div class="focus-card-title">
+                    <span class="card-icon">📊</span> Recent Activity
+                </div>
+                <div class="activity-list" id="focus-activity">
+                    <div class="empty-section">Loading...</div>
+                </div>
+                <button class="show-more-btn" id="activity-show-more" style="display:none" onclick="showMoreActivity()">Show more</button>
+            </div>
+            
+            <!-- Notes Card -->
+            <div class="focus-card">
+                <div class="focus-card-title">
+                    <span class="card-icon">📝</span> Notes
+                </div>
+                <div class="notes-list" id="focus-notes">
+                    <div class="empty-section">No notes</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <div class="header">
         <div class="header-left">
             <h1>⚛️ Workstream Clusters</h1>
@@ -1799,69 +1950,6 @@ def get_dashboard_html(current_profile: str) -> str:
             <div class="modal-body">
                 <div class="repo-list" id="repo-list">
                     <div class="empty-state">Loading repositories...</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Focus Panel - Full height info panel -->
-    <div class="focus-panel" id="focus-panel">
-        <div class="focus-panel-header">
-            <button class="focus-panel-close" onclick="exitFocusMode()">&times;</button>
-            <h2>
-                <span id="focus-name">Project Name</span>
-            </h2>
-            <span class="focus-type-badge project" id="focus-type-badge">
-                <span class="type-dot"></span>
-                <span id="focus-type-label">Project</span>
-            </span>
-        </div>
-        <div class="focus-panel-body">
-            <div class="focus-section" id="focus-summary-section">
-                <div class="focus-section-title">📝 Summary</div>
-                <div class="focus-summary" id="focus-summary">Loading...</div>
-            </div>
-            
-            <div class="focus-section" id="focus-tags-section">
-                <div class="focus-section-title">🏷️ Tags</div>
-                <div class="focus-tags" id="focus-tags"></div>
-            </div>
-            
-            <div class="focus-section" id="focus-todos-section">
-                <div class="focus-section-title">
-                    ✅ TODOs
-                    <button class="add-btn" onclick="showAddTodoForm()" title="Add TODO">+</button>
-                </div>
-                <div class="todo-add-form" id="todo-add-form" style="display:none">
-                    <input type="text" id="todo-input" placeholder="Enter TODO..." onkeydown="if(event.key==='Enter')addTodo()">
-                    <button onclick="addTodo()">Add</button>
-                    <button onclick="hideAddTodoForm()">Cancel</button>
-                </div>
-                <div class="todo-list" id="focus-todos">
-                    <div class="empty-section">No TODOs found</div>
-                </div>
-            </div>
-            
-            <div class="focus-section" id="focus-branches-section">
-                <div class="focus-section-title">🌿 Active Branches</div>
-                <div class="branch-list" id="focus-branches">
-                    <div class="empty-section">Loading branches...</div>
-                </div>
-                <button class="show-more-btn" id="branches-show-more" style="display:none" onclick="showMoreBranches()">Show more</button>
-            </div>
-            
-            <div class="focus-section" id="focus-activity-section">
-                <div class="focus-section-title">📊 Recent Activity</div>
-                <div class="activity-list" id="focus-activity">
-                    <div class="empty-section">Loading activity...</div>
-                </div>
-                <button class="show-more-btn" id="activity-show-more" style="display:none" onclick="showMoreActivity()">Show more</button>
-            </div>
-            
-            <div class="focus-section" id="focus-connections-section">
-                <div class="focus-section-title">🔗 Connections</div>
-                <div class="connection-list" id="focus-connections">
-                    <div class="empty-section">Loading connections...</div>
                 </div>
             </div>
         </div>
@@ -1949,9 +2037,34 @@ def get_dashboard_html(current_profile: str) -> str:
         let nodes = [], links = [];
         let selectedNode = null;
         let workstreamData = {{}};
+        let focusedWorkstreamId = null;
+        let currentFocusedWsId = null;
+        
+        // Pagination state
+        let allCommits = [];
+        let activityPage = 0;
+        const ACTIVITY_PAGE_SIZE = 5;
+        
+        let allBranches = [];
+        let branchesPage = 0;
+        const BRANCHES_PAGE_SIZE = 3;
         
         const width = window.innerWidth;
         const height = window.innerHeight;
+        
+        // Utility function to format dates
+        function formatDate(dateStr) {{
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 0) return 'Today';
+            if (diffDays === 1) return 'Yesterday';
+            if (diffDays < 7) return `${{diffDays}} days ago`;
+            if (diffDays < 30) return `${{Math.floor(diffDays / 7)}} weeks ago`;
+            return date.toLocaleDateString();
+        }}
         
         function initGraph() {{
             svg = d3.select('#graph')
@@ -1967,8 +2080,14 @@ def get_dashboard_html(current_profile: str) -> str:
             
             svg.call(zoom);
             
-            // Click outside to deselect
-            svg.on('click', () => hidePanel());
+            // Click on graph - in focus mode exits, otherwise hides panel
+            svg.on('click', () => {{
+                if (document.body.classList.contains('focus-mode')) {{
+                    exitFocusMode();
+                }} else {{
+                    hidePanel();
+                }}
+            }});
             
             // Container for zoomable content
             const container = svg.append('g');
@@ -2407,6 +2526,17 @@ def get_dashboard_html(current_profile: str) -> str:
         function hidePanel() {{
             const panel = document.getElementById('detail-panel');
             panel.classList.remove('visible');
+            panel.classList.remove('focused');
+            
+            // Reset focus mode if active
+            if (document.body.classList.contains('focus-mode')) {{
+                document.body.classList.remove('focus-mode');
+                resetGraphFocusEffect();
+                document.getElementById('focus-select').value = '';
+                focusedWorkstreamId = null;
+                currentFocusedWsId = null;
+                document.cookie = 'focused_workstream=;max-age=0;path=/';
+            }}
             
             // Reset all highlighting
             nodeGroup.selectAll('.node').classed('selected', false).classed('dimmed', false).classed('connected', false);
@@ -2499,7 +2629,6 @@ def get_dashboard_html(current_profile: str) -> str:
         
         // ============== Repo Selector ==============
         let reposData = [];
-        let focusedWorkstreamId = null;
         
         // ============== Focus Selector ==============
         function populateFocusSelector() {{
@@ -2552,27 +2681,17 @@ def get_dashboard_html(current_profile: str) -> str:
             // Store current focused workstream ID for TODO adding
             currentFocusedWsId = ws.id;
             
-            // Add focus mode class to body
+            // Add focus mode class to body (triggers CSS takeover)
             document.body.classList.add('focus-mode');
             
-            // Show focus panel
-            const panel = document.getElementById('focus-panel');
-            panel.classList.add('visible');
+            // Populate the focus dashboard
+            const wsType = (ws.metadata?.extra?.type || 'project').toLowerCase();
+            const typeBadge = document.getElementById('focus-type-badge');
+            typeBadge.className = 'focus-type-badge ' + wsType;
+            document.getElementById('focus-type-label').textContent = wsType.charAt(0).toUpperCase() + wsType.slice(1);
             
-            // Hide detail panel if open
-            hidePanel();
-            
-            // Get type from metadata or default
-            const wsType = (ws.metadata && ws.metadata.type) || 'project';
-            
-            // Update panel content
-            document.getElementById('focus-name').textContent = ws.name;
-            document.getElementById('focus-type-label').textContent = wsType;
-            
-            const badge = document.getElementById('focus-type-badge');
-            badge.className = `focus-type-badge ${{wsType}}`;
-            
-            document.getElementById('focus-summary').textContent = ws.summary || 'No summary available';
+            document.getElementById('focus-title').textContent = ws.name;
+            document.getElementById('focus-summary').textContent = ws.summary || 'No description';
             
             // Tags
             const tagsContainer = document.getElementById('focus-tags');
@@ -2581,230 +2700,225 @@ def get_dashboard_html(current_profile: str) -> str:
                     `<span class="focus-tag">${{tag}}</span>`
                 ).join('');
             }} else {{
-                tagsContainer.innerHTML = '<span class="empty-section">No tags</span>';
+                tagsContainer.innerHTML = '';
             }}
             
-            // Dim non-focused nodes and highlight focused one
-            applyGraphFocusEffect(ws.id);
-            
-            // Center graph on focused node
-            const node = nodes.find(n => n.id === ws.id);
-            if (node && svg) {{
-                // Shift center to right to account for panel
-                const transform = d3.zoomIdentity
-                    .translate(window.innerWidth / 2 + 200, window.innerHeight / 2)
-                    .scale(1.2)
-                    .translate(-node.x, -node.y);
-                svg.transition().duration(750).call(zoom.transform, transform);
-            }}
-            
-            // Load async data
-            console.log('Loading focus data for:', ws.id);
+            // Load all the cards
+            loadFocusTodos(ws);
             loadFocusBranches(ws.id);
             loadFocusActivity(ws.id);
             loadFocusConnections(ws.id);
-            extractTodosFromNotes(ws);
+            loadFocusNotes(ws);
+            
+            // Scale the graph to fit in the thumbnail
+            if (svg) {{
+                setTimeout(() => {{
+                    const graphEl = document.getElementById('graph');
+                    const thumbWidth = 280;
+                    const thumbHeight = 200;
+                    const scale = Math.min(thumbWidth / window.innerWidth, thumbHeight / window.innerHeight) * 0.8;
+                    const transform = d3.zoomIdentity
+                        .translate(thumbWidth / 2, thumbHeight / 2)
+                        .scale(scale);
+                    svg.transition().duration(500).call(zoom.transform, transform);
+                }}, 100);
+            }}
         }}
         
         function exitFocusMode() {{
             document.body.classList.remove('focus-mode');
             
-            const panel = document.getElementById('focus-panel');
-            panel.classList.remove('visible');
-            
-            // Reset graph effects
-            resetGraphFocusEffect();
-            
-            // Reset zoom
+            // Reset graph size and zoom
             if (svg) {{
-                svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+                svg.transition().duration(500).call(zoom.transform, d3.zoomIdentity);
             }}
             
-            // Reset dropdown
+            // Reset dropdown and state
             document.getElementById('focus-select').value = '';
             focusedWorkstreamId = null;
+            currentFocusedWsId = null;
             document.cookie = 'focused_workstream=;max-age=0;path=/';
         }}
         
-        function applyGraphFocusEffect(workstreamId) {{
-            // Dim all nodes except focused
-            nodeGroup.selectAll('circle')
-                .transition().duration(500)
-                .attr('opacity', d => d.id === workstreamId ? 1 : 0.2)
-                .attr('r', d => d.id === workstreamId ? (d.size || 20) * 1.5 : (d.size || 20));
-            
-            nodeGroup.selectAll('text')
-                .transition().duration(500)
-                .attr('opacity', d => d.id === workstreamId ? 1 : 0.2);
-            
-            // Highlight connected links
-            const connectedIds = new Set([workstreamId]);
-            links.forEach(link => {{
-                const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
-                const targetId = typeof link.target === 'object' ? link.target.id : link.target;
-                if (sourceId === workstreamId) connectedIds.add(targetId);
-                if (targetId === workstreamId) connectedIds.add(sourceId);
+        // Focus dashboard card loaders
+        function loadFocusTodos(ws) {{
+            const container = document.getElementById('focus-todos');
+            const todos = (ws.notes || []).filter(n => {{
+                if (typeof n === 'string') return n.toLowerCase().startsWith('todo:') || n.toLowerCase().startsWith('[ ]');
+                return n.category === 'todo' || (n.content && (n.content.toLowerCase().startsWith('todo:') || n.content.toLowerCase().startsWith('[ ]')));
             }});
             
-            linkGroup.selectAll('line')
-                .transition().duration(500)
-                .attr('opacity', d => {{
-                    const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
-                    const targetId = typeof d.target === 'object' ? d.target.id : d.target;
-                    return (sourceId === workstreamId || targetId === workstreamId) ? 1 : 0.1;
-                }})
-                .attr('stroke-width', d => {{
-                    const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
-                    const targetId = typeof d.target === 'object' ? d.target.id : d.target;
-                    return (sourceId === workstreamId || targetId === workstreamId) ? 3 : 1;
-                }});
-        }}
-        
-        function resetGraphFocusEffect() {{
-            nodeGroup.selectAll('circle')
-                .transition().duration(500)
-                .attr('opacity', 1)
-                .attr('r', d => d.size || 20);
-            
-            nodeGroup.selectAll('text')
-                .transition().duration(500)
-                .attr('opacity', 1);
-            
-            linkGroup.selectAll('line')
-                .transition().duration(500)
-                .attr('opacity', 0.6)
-                .attr('stroke-width', 1);
-        }}
-        
-        let allCommits = [];
-        let activityPage = 0;
-        const ACTIVITY_PAGE_SIZE = 5;
-        
-        async function loadFocusActivity(workstreamId) {{
-            const container = document.getElementById('focus-activity');
-            const showMoreBtn = document.getElementById('activity-show-more');
-            container.innerHTML = '<div class="empty-section">Loading activity...</div>';
-            showMoreBtn.style.display = 'none';
-            
-            try {{
-                console.log('Fetching activity for:', workstreamId);
-                const response = await fetch(`/api/workstreams/${{workstreamId}}/activity?profile={current_profile}&days=30`);
-                const data = await response.json();
-                console.log('Activity response:', data);
-                
-                if (data.commits && data.commits.length > 0) {{
-                    allCommits = data.commits;
-                    activityPage = 0;
-                    renderActivityPage();
-                    
-                    // Show "Show more" if there are more commits
-                    if (allCommits.length > ACTIVITY_PAGE_SIZE) {{
-                        showMoreBtn.style.display = 'block';
-                    }}
-                }} else {{
-                    container.innerHTML = `<div class="empty-section">${{data.error || 'No recent commits'}}</div>`;
-                }}
-            }} catch (e) {{
-                console.error('Failed to load activity:', e);
-                container.innerHTML = '<div class="empty-section">Failed to load activity</div>';
+            if (todos.length === 0) {{
+                container.innerHTML = '<div class="empty-section">No TODOs found</div>';
+                return;
             }}
-        }}
-        
-        function renderActivityPage() {{
-            const container = document.getElementById('focus-activity');
-            const showMoreBtn = document.getElementById('activity-show-more');
-            const start = 0;
-            const end = (activityPage + 1) * ACTIVITY_PAGE_SIZE;
-            const visibleCommits = allCommits.slice(start, end);
             
-            container.innerHTML = visibleCommits.map(commit => {{
-                const date = new Date(commit.timestamp * 1000);
-                const timeAgo = getTimeAgo(date);
-                return `
-                    <div class="activity-item">
-                        <div class="activity-header">
-                            <span class="activity-sha">${{commit.sha}}</span>
-                            <span class="activity-time">${{timeAgo}}</span>
-                        </div>
-                        <div class="activity-message">${{escapeHtml(commit.message)}}</div>
-                        <div class="activity-author">by ${{escapeHtml(commit.author)}}</div>
-                    </div>
-                `;
+            container.innerHTML = todos.map((todo, idx) => {{
+                const text = typeof todo === 'string' ? todo : todo.content;
+                const cleanText = text.replace(/^(todo:|\\[ \\])/i, '').trim();
+                return `<div class="todo-item">
+                    <span class="todo-text">${{cleanText}}</span>
+                    <button class="todo-delete" onclick="deleteTodo(${{idx}})" title="Delete">&times;</button>
+                </div>`;
             }}).join('');
-            
-            // Hide show more if all shown
-            if (end >= allCommits.length) {{
-                showMoreBtn.style.display = 'none';
-            }} else {{
-                showMoreBtn.style.display = 'block';
-            }}
         }}
         
-        function showMoreActivity() {{
-            activityPage++;
-            renderActivityPage();
-        }}
-        
-        let allBranches = [];
-        let branchesPage = 0;
-        const BRANCHES_PAGE_SIZE = 3;
-        
-        async function loadFocusBranches(workstreamId) {{
+        async function loadFocusBranches(wsId) {{
             const container = document.getElementById('focus-branches');
-            const showMoreBtn = document.getElementById('branches-show-more');
-            container.innerHTML = '<div class="empty-section">Loading branches...</div>';
-            showMoreBtn.style.display = 'none';
-            
             try {{
-                const response = await fetch(`/api/workstreams/${{workstreamId}}/branches?profile={current_profile}&days=14`);
+                const response = await fetch(`/api/workstreams/${{wsId}}/branches?profile={current_profile}`);
+                if (!response.ok) throw new Error('Failed to load');
                 const data = await response.json();
                 
-                if (data.branches && data.branches.length > 0) {{
-                    allBranches = data.branches;
-                    branchesPage = 0;
-                    renderBranchesPage();
-                    
-                    if (allBranches.length > BRANCHES_PAGE_SIZE) {{
-                        showMoreBtn.style.display = 'block';
-                    }}
-                }} else {{
-                    container.innerHTML = `<div class="empty-section">${{data.error || 'No recent branches'}}</div>`;
-                }}
+                allBranches = data.branches || [];
+                branchesPage = 0;
+                renderBranches(container, 'branches-show-more');
             }} catch (e) {{
-                console.error('Failed to load branches:', e);
-                container.innerHTML = '<div class="empty-section">Failed to load branches</div>';
+                container.innerHTML = '<div class="empty-section">Could not load branches</div>';
             }}
         }}
         
-        function renderBranchesPage() {{
-            const container = document.getElementById('focus-branches');
-            const showMoreBtn = document.getElementById('branches-show-more');
-            const end = (branchesPage + 1) * BRANCHES_PAGE_SIZE;
-            const visibleBranches = allBranches.slice(0, end);
+        async function loadFocusActivity(wsId) {{
+            const container = document.getElementById('focus-activity');
+            try {{
+                const response = await fetch(`/api/workstreams/${{wsId}}/activity?profile={current_profile}`);
+                if (!response.ok) throw new Error('Failed to load');
+                const data = await response.json();
+                
+                allCommits = data.commits || [];
+                activityPage = 0;
+                renderActivity(container, 'activity-show-more');
+            }} catch (e) {{
+                container.innerHTML = '<div class="empty-section">Could not load activity</div>';
+            }}
+        }}
+        
+        async function loadFocusConnections(wsId) {{
+            const container = document.getElementById('focus-connections');
+            try {{
+                const response = await fetch(`/api/workstreams/${{wsId}}/connections?profile={current_profile}`);
+                if (!response.ok) throw new Error('Failed to load');
+                const data = await response.json();
+                
+                const items = [];
+                
+                if (data.parent) {{
+                    items.push(`
+                        <div class="connection-item" onclick="focusOnWorkstream('${{data.parent.id}}')">
+                            <span class="connection-type">Parent</span>
+                            <span class="connection-name">${{data.parent.name}}</span>
+                        </div>
+                    `);
+                }}
+                
+                (data.children || []).forEach(child => {{
+                    items.push(`
+                        <div class="connection-item" onclick="focusOnWorkstream('${{child.id}}')">
+                            <span class="connection-type">Child</span>
+                            <span class="connection-name">${{child.name}}</span>
+                        </div>
+                    `);
+                }});
+                
+                (data.dependents || []).forEach(dep => {{
+                    items.push(`
+                        <div class="connection-item" onclick="focusOnWorkstream('${{dep.id}}')">
+                            <span class="connection-type">Depends</span>
+                            <span class="connection-name">${{dep.name}}</span>
+                        </div>
+                    `);
+                }});
+                
+                if (items.length === 0) {{
+                    container.innerHTML = '<div class="empty-section">No connections</div>';
+                }} else {{
+                    container.innerHTML = items.join('');
+                }}
+            }} catch (e) {{
+                container.innerHTML = '<div class="empty-section">Could not load connections</div>';
+            }}
+        }}
+        
+        function loadFocusNotes(ws) {{
+            const container = document.getElementById('focus-notes');
+            const notes = (ws.notes || []).filter(n => {{
+                const text = typeof n === 'string' ? n : n.content;
+                return !text.toLowerCase().startsWith('todo:') && !text.toLowerCase().startsWith('[ ]');
+            }});
             
-            container.innerHTML = visibleBranches.map(branch => `
+            if (notes.length === 0) {{
+                container.innerHTML = '<div class="empty-section">No notes</div>';
+                return;
+            }}
+            
+            container.innerHTML = notes.slice(0, 5).map(note => {{
+                const text = typeof note === 'string' ? note : note.content;
+                return `<div class="note-item">${{text}}</div>`;
+            }}).join('');
+        }}
+        
+        function focusOnWorkstream(wsId) {{
+            document.getElementById('focus-select').value = wsId;
+            onFocusSelect(wsId);
+        }}
+        
+        // Shared render functions
+        function renderBranches(container, showMoreId) {{
+            const start = 0;
+            const end = (branchesPage + 1) * BRANCHES_PAGE_SIZE;
+            const visible = allBranches.slice(start, end);
+            
+            if (visible.length === 0) {{
+                container.innerHTML = '<div class="empty-section">No recent branches</div>';
+                document.getElementById(showMoreId).style.display = 'none';
+                return;
+            }}
+            
+            container.innerHTML = visible.map(branch => `
                 <div class="branch-item ${{branch.current ? 'current' : ''}}">
-                    <span class="branch-icon">${{branch.current ? '●' : '○'}}</span>
-                    <span class="branch-name">${{escapeHtml(branch.name)}}</span>
-                    <span class="branch-time">${{escapeHtml(branch.time)}}</span>
+                    <span class="branch-name">${{branch.name}}</span>
+                    <span class="branch-time">${{branch.time}}</span>
                 </div>
             `).join('');
             
-            if (end >= allBranches.length) {{
-                showMoreBtn.style.display = 'none';
-            }} else {{
-                showMoreBtn.style.display = 'block';
+            document.getElementById(showMoreId).style.display = allBranches.length > end ? 'block' : 'none';
+        }}
+        
+        function renderActivity(container, showMoreId) {{
+            const start = 0;
+            const end = (activityPage + 1) * ACTIVITY_PAGE_SIZE;
+            const visible = allCommits.slice(start, end);
+            
+            if (visible.length === 0) {{
+                container.innerHTML = '<div class="empty-section">No recent activity</div>';
+                document.getElementById(showMoreId).style.display = 'none';
+                return;
             }}
+            
+            container.innerHTML = visible.map(commit => `
+                <div class="activity-item">
+                    <div class="activity-message">${{commit.message}}</div>
+                    <div class="activity-meta">
+                        <span class="activity-author">${{commit.author}}</span>
+                        <span class="activity-date">${{formatDate(new Date(commit.timestamp * 1000))}}</span>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById(showMoreId).style.display = allCommits.length > end ? 'block' : 'none';
         }}
         
         function showMoreBranches() {{
             branchesPage++;
-            renderBranchesPage();
+            renderBranches(document.getElementById('focus-branches'), 'branches-show-more');
+        }}
+        
+        function showMoreActivity() {{
+            activityPage++;
+            renderActivity(document.getElementById('focus-activity'), 'activity-show-more');
         }}
         
         // TODO functions
-        let currentFocusedWsId = null;
-        
         function showAddTodoForm() {{
             document.getElementById('todo-add-form').style.display = 'flex';
             document.getElementById('todo-input').focus();
@@ -2834,7 +2948,7 @@ def get_dashboard_html(current_profile: str) -> str:
                     const wsResponse = await fetch(`/api/workstreams/${{currentFocusedWsId}}?profile={current_profile}`);
                     const ws = await wsResponse.json();
                     workstreamData[currentFocusedWsId] = ws;
-                    extractTodosFromNotes(ws);
+                    loadFocusTodos(ws);
                 }} else {{
                     const err = await response.json();
                     console.error('Failed to add TODO:', err);
@@ -2844,99 +2958,6 @@ def get_dashboard_html(current_profile: str) -> str:
             }}
         }}
         
-        async function loadFocusConnections(workstreamId) {{
-            const container = document.getElementById('focus-connections');
-            container.innerHTML = '<div class="empty-section">Loading connections...</div>';
-            
-            try {{
-                console.log('Fetching connections for:', workstreamId);
-                const response = await fetch(`/api/workstreams/${{workstreamId}}/connections?profile={current_profile}`);
-                const data = await response.json();
-                console.log('Connections response:', data);
-                
-                const items = [];
-                
-                if (data.parent) {{
-                    items.push(`
-                        <div class="connection-item" onclick="focusOnWorkstream('${{data.parent.id}}')">
-                            <span class="connection-type">Parent</span>
-                            <span class="connection-name">${{escapeHtml(data.parent.name)}}</span>
-                        </div>
-                    `);
-                }}
-                
-                data.children?.forEach(child => {{
-                    items.push(`
-                        <div class="connection-item" onclick="focusOnWorkstream('${{child.id}}')">
-                            <span class="connection-type">Child</span>
-                            <span class="connection-name">${{escapeHtml(child.name)}}</span>
-                        </div>
-                    `);
-                }});
-                
-                data.dependents?.forEach(dep => {{
-                    items.push(`
-                        <div class="connection-item" onclick="focusOnWorkstream('${{dep.id}}')">
-                            <span class="connection-type">Depends</span>
-                            <span class="connection-name">${{escapeHtml(dep.name)}}</span>
-                        </div>
-                    `);
-                }});
-                
-                // Relationships
-                if (data.relationships) {{
-                    Object.entries(data.relationships).forEach(([relType, targets]) => {{
-                        targets?.forEach(targetId => {{
-                            const targetWs = workstreamData[targetId];
-                            if (targetWs) {{
-                                items.push(`
-                                    <div class="connection-item" onclick="focusOnWorkstream('${{targetId}}')">
-                                        <span class="connection-type">${{relType}}</span>
-                                        <span class="connection-name">${{escapeHtml(targetWs.name)}}</span>
-                                    </div>
-                                `);
-                            }}
-                        }});
-                    }});
-                }}
-                
-                container.innerHTML = items.length > 0 ? items.join('') : '<div class="empty-section">No connections</div>';
-            }} catch (e) {{
-                container.innerHTML = '<div class="empty-section">Failed to load connections</div>';
-            }}
-        }}
-        
-        function extractTodosFromNotes(ws) {{
-            const container = document.getElementById('focus-todos');
-            const todos = [];
-            
-            // Parse notes for TODO patterns, tracking note index for deletion
-            if (ws.notes && ws.notes.length > 0) {{
-                ws.notes.forEach((note, noteIndex) => {{
-                    // Notes can be strings or objects with content
-                    const content = typeof note === 'string' ? note : (note.content || '');
-                    // Match TODO, FIXME, [ ], [x] patterns
-                    const todoMatches = content.match(/(?:TODO|FIXME|\\[ \\]|\\[x\\])\\s*:?\\s*.+/gi) || [];
-                    todoMatches.forEach(match => {{
-                        const isDone = match.includes('[x]');
-                        const text = match.replace(/^(TODO|FIXME|\\[ \\]|\\[x\\])\\s*:?\\s*/i, '');
-                        todos.push({{ text, done: isDone, noteIndex }});
-                    }});
-                }});
-            }}
-            
-            if (todos.length > 0) {{
-                container.innerHTML = todos.map((todo, idx) => `
-                    <div class="todo-item">
-                        <span class="todo-checkbox">${{todo.done ? '☑' : '☐'}}</span>
-                        <span class="todo-text">${{escapeHtml(todo.text)}}</span>
-                        <button class="todo-delete" onclick="deleteTodo(${{todo.noteIndex}})" title="Delete">×</button>
-                    </div>
-                `).join('');
-            }} else {{
-                container.innerHTML = '<div class="empty-section">No TODOs found in notes</div>';
-            }}
-        }}
         
         async function deleteTodo(noteIndex) {{
             if (!currentFocusedWsId) return;
@@ -2951,7 +2972,7 @@ def get_dashboard_html(current_profile: str) -> str:
                     const wsResponse = await fetch(`/api/workstreams/${{currentFocusedWsId}}?profile={current_profile}`);
                     const ws = await wsResponse.json();
                     workstreamData[currentFocusedWsId] = ws;
-                    extractTodosFromNotes(ws);
+                    loadFocusTodos(ws);
                 }} else {{
                     console.error('Failed to delete TODO');
                 }}
